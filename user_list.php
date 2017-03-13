@@ -24,24 +24,28 @@
 require_once(__DIR__ . '/../../config.php');
 require_once($CFG->libdir . '/adminlib.php');
 
-$url = '/local/zoomadmin/index.php';
+$params = array('page_number' => optional_param('page_number', null, PARAM_INT));
+
+$url = new moodle_url('/local/zoomadmin/user_list.php', $params);
 
 $PAGE->set_url($url);
 $context = context_system::instance();
 $PAGE->set_context($context);
-$PAGE->set_title(get_string('pluginname', 'local_zoomadmin'));
+
+$title = get_string('pluginname', 'local_zoomadmin') . ' - ' . get_string('command_user_list', 'local_zoomadmin');
+$PAGE->set_title($title);
 $PAGE->set_pagelayout('admin');
 
-admin_externalpage_setup('local_zoomadmin_index');
+admin_externalpage_setup('local_zoomadmin_user_list');
 
 require_login();
 require_capability('local/zoomadmin:managezoom', $context);
 
 $output = $PAGE->get_renderer('local_zoomadmin');
-$page = new \local_zoomadmin\output\manage_zoom();
+$page = new \local_zoomadmin\output\manage_zoom($params);
 
-echo $output->header() . $output->heading(get_string('pluginname', 'local_zoomadmin'));
+echo $output->header() . $output->heading($title);
 
-echo $output->render_index($page);
+echo $output->render_user_list($page);
 
 echo $output->footer();

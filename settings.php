@@ -25,13 +25,25 @@
  */
 defined('MOODLE_INTERNAL') || die;
 
-if (has_capability('local/zoomadmin:adminzoom', context_system::instance())) {
+if (has_capability('local/zoomadmin:managezoom', context_system::instance())) {
+    $ADMIN->add('localplugins', new admin_category('zoom', get_string('zoom', 'local_zoomadmin')));
     $ADMIN->add(
-        'localplugins',
+        'zoom',
         new admin_externalpage(
             'local_zoomadmin_index',
             get_string('pluginname', 'local_zoomadmin'),
             new moodle_url('/local/zoomadmin/index.php')
         )
     );
+
+    $ADMIN->add('zoom', new admin_category('zoom_category_user', get_string('category_user', 'local_zoomadmin')));
+    $ADMIN->add(
+        'zoom_category_user',
+        new admin_externalpage(
+            'local_zoomadmin_user_list',
+            get_string('command_user_list', 'local_zoomadmin'),
+            new moodle_url('/local/zoomadmin/user_list.php')
+        )
+    );
+
 }

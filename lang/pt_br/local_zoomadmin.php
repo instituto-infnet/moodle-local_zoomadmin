@@ -24,4 +24,22 @@
  */
 
 $string['pluginname'] = 'Administração do Zoom';
-$string['zoomadmin:adminzoom'] = 'Administrar Zoom';
+$string['category_meeting'] = 'Comandos de reunião';
+$string['category_user'] = 'Comandos de usuário';
+$string['command_meeting_list'] = 'Listar reuniões';
+$string['command_meeting_list_description'] = 'Lista todas as reuniões do Zoom com apresentadores gerenciados pela instituição.';
+$string['command_user_list'] = 'Listar usuários';
+$string['command_user_list_description'] = 'Lista todos os usuários do Zoom gerenciados pela instituição.';
+$string['created_at'] = 'Data de criação';
+$string['dept'] = 'Departamento';
+$string['details'] = 'Ver detalhes';
+$string['edit'] = 'Editar';
+$string['email'] = 'E-mail';
+$string['last_login_time'] = 'Último login';
+$string['name'] = 'Nome';
+$string['type'] = 'Tipo';
+$string['type_1'] = 'Basic';
+$string['type_2'] = 'Pro';
+$string['type_3'] = 'Corp';
+$string['zoom'] = 'Zoom';
+$string['zoomadmin:managezoom'] = 'Administrar Zoom';

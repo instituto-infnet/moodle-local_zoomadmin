@@ -26,7 +26,7 @@ defined('MOODLE_INTERNAL') || die();
 
 $capabilities = array(
     // Permite ao usuário acessar a tela de administração do Zoom.
-    'local/zoomadmin:adminzoom' => array(
+    'local/zoomadmin:managezoom' => array(
         'riskbitmask' => RISK_SPAM | RISK_PERSONAL | RISK_CONFIG | RISK_DATALOSS,
         'captype' => 'write',
         'contextlevel' => CONTEXT_SYSTEM
