@@ -61,6 +61,7 @@ class zoomadmin {
 
     private function populate_commands() {
         $this->commands['user_list'] = new command('user', 'list');
+        $this->commands['user_get'] = new command('user', 'get');
         $this->commands['meeting_list'] = new command('meeting', 'list');
     }
 

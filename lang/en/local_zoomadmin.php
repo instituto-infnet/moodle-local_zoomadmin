@@ -23,7 +23,6 @@
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 
-$string['pluginname'] = 'Zoom administration';
 $string['category_meeting'] = 'Meeting commands';
 $string['category_user'] = 'User commands';
 $string['command_meeting_list'] = 'List meetings';
@@ -31,15 +30,22 @@ $string['command_meeting_list_description'] = 'Lists all Zoom meetings with host
 $string['command_user_list'] = 'List users';
 $string['command_user_list_description'] = 'Lists all Zoom users managed by the school.';
 $string['created_at'] = 'Creation date';
-$string['dept'] = 'Department';
+$string['department'] = 'Department';
 $string['details'] = 'See details';
+$string['disable_chat'] = 'Disable chat';
 $string['edit'] = 'Edit';
 $string['email'] = 'E-mail';
 $string['last_login_time'] = 'Last login';
+$string['meeting_advanced'] = 'Meeting settings (advanced)';
+$string['meeting_basic'] = 'Meeting settings (basic)';
 $string['name'] = 'Name';
+$string['pluginname'] = 'Zoom administration';
+$string['profile'] = 'Profile info';
 $string['type'] = 'Type';
 $string['type_1'] = 'Basic';
 $string['type_2'] = 'Pro';
 $string['type_3'] = 'Corp';
+$string['user_details'] = 'User details';
+$string['usertype'] = 'User type';
 $string['zoom'] = 'Zoom';
 $string['zoomadmin:managezoom'] = 'Manage Zoom';

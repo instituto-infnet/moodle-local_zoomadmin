@@ -23,7 +23,6 @@
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 
-$string['pluginname'] = 'Administração do Zoom';
 $string['category_meeting'] = 'Comandos de reunião';
 $string['category_user'] = 'Comandos de usuário';
 $string['command_meeting_list'] = 'Listar reuniões';
@@ -31,15 +30,22 @@ $string['command_meeting_list_description'] = 'Lista todas as reuniões do Zoom 
 $string['command_user_list'] = 'Listar usuários';
 $string['command_user_list_description'] = 'Lista todos os usuários do Zoom gerenciados pela instituição.';
 $string['created_at'] = 'Data de criação';
-$string['dept'] = 'Departamento';
+$string['department'] = 'Departamento';
 $string['details'] = 'Ver detalhes';
+$string['disable_chat'] = 'Desabilitar chat';
 $string['edit'] = 'Editar';
 $string['email'] = 'E-mail';
 $string['last_login_time'] = 'Último login';
+$string['meeting_advanced'] = 'Configurações de reunião (avançadas)';
+$string['meeting_basic'] = 'Configurações de reunião (básicas)';
 $string['name'] = 'Nome';
+$string['pluginname'] = 'Administração do Zoom';
+$string['profile'] = 'Informações de perfil';
 $string['type'] = 'Tipo';
 $string['type_1'] = 'Basic';
 $string['type_2'] = 'Pro';
 $string['type_3'] = 'Corp';
+$string['user_details'] = 'Detalhes de usuário';
+$string['usertype'] = 'Tipo de usuário';
 $string['zoom'] = 'Zoom';
 $string['zoomadmin:managezoom'] = 'Administrar Zoom';
