@@ -70,11 +70,23 @@ class manage_zoom implements \renderable/*, \templatable*/ {
         $zoomadmin = $this->zoomadmin;
         $userlist = $zoomadmin->request($zoomadmin->commands['user_list'], $this->params);
         $userlist->user_get_url = './user_get.php';
+        $userlist->user_list_url = './user_list.php';
 
         foreach ($userlist->users as $user) {
             $user->type_string = get_string('type_' . $user->type, 'local_zoomadmin');
             $user->last_login_time_formatted = date_create($user->lastLoginTime)->format('d/m/Y H:i:s');
             $user->created_at_formatted = date_create($user->created_at)->format('d/m/Y H:i:s');
+        }
+
+        $userlist->pages = array();
+        $pagenumber = 1;
+        while ($pagenumber <= $userlist->page_count) {
+            $page = new \stdClass();
+            $page->number = $pagenumber;
+            $page->current = ($pagenumber === (int)$userlist->page_number);
+            $userlist->pages[] = $page;
+
+            $pagenumber++;
         }
 
         return $userlist;

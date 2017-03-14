@@ -31,3 +31,14 @@
     {{/users}}
     </tbody>
 </table>
+<div>
+    {{#str}}page{{/str}}:
+    {{#pages}}
+        {{#current}}
+            <span>{{number}}</span>
+        {{/current}}
+        {{^current}}
+            <a href="{{{user_list_url}}}?page_number={{number}}">{{number}}</a>
+        {{/current}}
+    {{/pages}}
+</div>
