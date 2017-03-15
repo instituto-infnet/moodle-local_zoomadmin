@@ -47,9 +47,9 @@ require_capability('local/zoomadmin:managezoom', $context);
 
 echo $OUTPUT->header() . $OUTPUT->heading($title);
 
-$mform = new user_get_form(null, $params, null, null, null, (isset($params['action'])));
+$mform = new user_get_form(null, $params, null, null, null, in_array($params['action'], array('add', 'edit')));
 
-if (isset($params['id'])) {
+if ($params['action'] !== 'add' && isset($params['id']) && $params['id'] !== '') {
     $zoomadmin = new \local_zoomadmin\zoomadmin();
     $mform->set_data($zoomadmin->request($zoomadmin->commands['user_get'], array('id' => $params['id'])));
 }
