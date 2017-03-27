@@ -26,9 +26,12 @@ require_once($CFG->libdir . '/adminlib.php');
 require_once(__DIR__ . '/classes/user_get_form.php');
 
 $params = array(
-    'id' => optional_param('id', null, PARAM_TEXT),
-    'action' => optional_param('action', null, PARAM_TEXT)
+    'zoom_command' => optional_param('zoom_command', null, PARAM_TEXT)
 );
+
+if ($params['zoom_command'] !== 'user_create') {
+    $params['id'] = required_param('id', PARAM_TEXT);
+}
 
 $url = new moodle_url('/local/zoomadmin/user_get.php', $params);
 
@@ -45,15 +48,35 @@ admin_externalpage_setup('local_zoomadmin_user_list');
 require_login();
 require_capability('local/zoomadmin:managezoom', $context);
 
-echo $OUTPUT->header() . $OUTPUT->heading($title);
+$zoomadmin = new \local_zoomadmin\zoomadmin();
+$mform = new user_get_form(null, $params, null, null, null, in_array($params['zoom_command'], array('user_create', 'user_update')));
 
-$mform = new user_get_form(null, $params, null, null, null, in_array($params['action'], array('add', 'edit')));
+if ($mform->is_cancelled()) {
+    redirect(new moodle_url('/local/zoomadmin/user_list.php'));
+} else if (($fromform = $mform->get_data())) {
+    if (!isset($fromform->email)) {
+        $fromform->email = $fromform->email_hidden;
+    }
+    
+    $response = $zoomadmin->handle_form($fromform);
 
-if ($params['action'] !== 'add' && isset($params['id']) && $params['id'] !== '') {
-    $zoomadmin = new \local_zoomadmin\zoomadmin();
-    $mform->set_data($zoomadmin->request($zoomadmin->commands['user_get'], array('id' => $params['id'])));
+    if (isset($response->error)) {
+        $mform->set_data($fromform);
+        \core\notification::add($response->notification->message, $response->notification->type);
+    } else {
+        redirect(
+            new moodle_url('/local/zoomadmin/user_get.php', array('id' => $response->id)),
+            $response->notification->message,
+            null,
+            $response->notification->type
+        );
+    }
+} else if ($params['zoom_command'] !== 'user_create') {
+    $userdata = $zoomadmin->request($zoomadmin->commands['user_get'], array('id' => $params['id']));
+    $userdata->email_hidden = $userdata->email;
+    $mform->set_data($userdata);
 }
 
+echo $OUTPUT->header() . $OUTPUT->heading($title);
 $mform->display();
-
 echo $OUTPUT->footer();

@@ -59,10 +59,35 @@ class zoomadmin {
         return $response;
     }
 
+    public function handle_form(\stdClass $formdata) {
+        confirm_sesskey();
+
+        $response = $this->request($this->commands[$formdata->zoom_command], get_object_vars($formdata));
+
+        if (isset($response->error)) {
+            $response->notification->type = \core\output\notification::NOTIFY_ERROR;
+            $response->notification->message = get_string('zoom_command_error', 'local_zoomadmin', $response->error);
+        } else {
+            $response->notification->type = \core\output\notification::NOTIFY_SUCCESS;
+            $response->notification->message = get_string(
+                'notification_' . $formdata->zoom_command,
+                'local_zoomadmin',
+                $formdata->first_name . ' ' . $formdata->last_name
+            );
+        }
+
+        $response->formdata = $formdata;
+        return $response;
+    }
+
     private function populate_commands() {
         $this->commands['user_list'] = new command('user', 'list');
-        $this->commands['user_get'] = new command('user', 'get');
         $this->commands['meeting_list'] = new command('meeting', 'list');
+
+        $this->commands['user_pending'] = new command('user', 'pending', false);
+        $this->commands['user_get'] = new command('user', 'get', false);
+        $this->commands['user_create'] = new command('user', 'create', false);
+        $this->commands['user_update'] = new command('user', 'update', false);
     }
 
     private function get_credentials() {

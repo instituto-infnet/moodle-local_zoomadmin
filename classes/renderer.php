@@ -39,24 +39,17 @@ defined('MOODLE_INTERNAL') || die;
 class renderer extends \plugin_renderer_base {
 
     /**
-     * Obtém a lista de comandos disponíveis e envia para o template mustache.
+     * Obtém os dados correspondentes à página solicitada e envia para o template mustache.
      *
-     * @param manage_zoom $page Página da lista de comandos, com dados para exibição.
+     * @param manage_zoom $page Página a ser carregada.
+     * @param moodle_url $url URL da página.
      * @return string Código HTML para exibição do relatório.
      */
-    public function render_index(manage_zoom $page) {
-        $data = $page->export_for_template('index');
-        return $this->render_from_template('local_zoomadmin/index', $data);
-    }
+    public function render_page(manage_zoom $page) {
+        $pagepatharray = explode('/', $this->page->url->get_path());
+        $pagename = str_replace('.php', '', array_pop($pagepatharray));
 
-    /**
-     * Lista todos os usuários do Zoom gerenciados pela instituição.
-     *
-     * @param manage_zoom $page Página do plugin, com dados para exibição.
-     * @return string Código HTML para exibição da página.
-     */
-    public function render_user_list(manage_zoom $page) {
-        $data = $page->export_for_template('user_list', $this);
-        return $this->render_from_template('local_zoomadmin/user_list', $data);
+        $data = $page->export_for_template($pagename, $this);
+        return $this->render_from_template('local_zoomadmin/' . $pagename, $data);
     }
 }

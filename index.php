@@ -24,7 +24,7 @@
 require_once(__DIR__ . '/../../config.php');
 require_once($CFG->libdir . '/adminlib.php');
 
-$url = '/local/zoomadmin/index.php';
+$url = new moodle_url('/local/zoomadmin/index.php');
 
 $PAGE->set_url($url);
 $context = context_system::instance();
@@ -42,6 +42,6 @@ $page = new \local_zoomadmin\output\manage_zoom();
 
 echo $output->header() . $output->heading(get_string('pluginname', 'local_zoomadmin'));
 
-echo $output->render_index($page);
+echo $output->render_page($page);
 
 echo $output->footer();

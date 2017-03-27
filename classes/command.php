@@ -37,15 +37,17 @@ namespace local_zoomadmin;
 class command {
     var $category;
     var $name;
+    var $showinindex;
     var $url;
 
     var $categorystringname;
     var $stringname;
     var $stringdescription;
 
-    public function __construct($category, $name) {
+    public function __construct($category, $name, $showinindex = true) {
         $this->category = $category;
         $this->name = $name;
+        $this->showinindex = $showinindex;
 
         $this->url = './' . implode('_', array($this->category, $this->name)) . '.php';
 

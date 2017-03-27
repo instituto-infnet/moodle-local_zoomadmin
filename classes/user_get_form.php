@@ -81,57 +81,69 @@ class user_get_form extends moodleform {
      * e botões para confirmar e cancelar.
      */
     public function definition()
-	{
-		$this->add_profile();
+    {
+        $mform = $this->_form;
+
+        $mform->addElement('hidden', 'zoom_command', $this->_customdata['zoom_command']);
+        if ($this->_customdata['zoom_command'] !== 'user_create') {
+            $mform->addElement('hidden', 'id');
+            $mform->addElement('hidden', 'email_hidden');
+        }
+
+        $this->add_profile();
         $this->add_meeting_basic();
         $this->add_meeting_advanced();
         $this->add_recording();
         $this->add_security();
 
-        if ($this->_customdata['action'] === 'add') {
+        if ($this->_customdata['zoom_command'] === 'user_create') {
             $this->add_action_buttons(true, get_string('add_user', 'local_zoomadmin'));
-        } else if ($this->_customdata['action'] === 'edit') {
+        } else if ($this->_customdata['zoom_command'] === 'user_update') {
             $this->add_action_buttons();
         }
-
-	}
+    }
 
     private function add_profile() {
         $mform = $this->_form;
 
         $mform->addElement('header', 'profile', get_string('profile', 'local_zoomadmin'));
 
-        $mform->addElement(($this->_customdata['action'] === 'add') ? 'text' : 'static', 'email', get_string('email'));
-        $this->setElementOptions('email', array('type' => 'text', 'required' => true, 'maxlength' => 128));
+        $mform->addElement('text', 'email', get_string('email'));
+        $mform->disabledIf('email', 'zoom_command', 'neq', 'user_create');
 
         $mform->addElement('text', 'first_name', get_string('firstname'));
-        $this->setElementOptions('first_name', array('type' => 'text', 'required' => true, 'maxlength' => 64));
-
         $mform->addElement('text', 'last_name', get_string('lastname'));
-        $this->setElementOptions('last_name', array('type' => 'text', 'required' => true, 'maxlength' => 63));
-
         $mform->addElement('select', 'type', get_string('usertype', 'local_zoomadmin'), $this->get_user_types());
-        $this->setElementOptions('type', array('required' => true));
-
         $mform->addElement('text', 'dept', get_string('department', 'local_zoomadmin'));
-        $this->setElementOptions('dept', array('type' => 'text', 'maxlength' => 40));
-
         $mform->addElement('text', 'timezone', get_string('timezone'));
-        $this->setElementOptions('dept', array('type' => 'text', 'default' => 'America/Sao_Paulo'));
 
-        if ($this->_customdata['action'] !== 'add') {
+        $iscreate = $this->_customdata['zoom_command'] === 'user_create';
+        if ($iscreate === false) {
             $mform->addElement('text', 'pmi', get_string('pmi', 'local_zoomadmin'));
-            $this->setElementOptions('pmi', array('type' => 'int', 'required' => true, 'rangelength' => array(10, 10)));
         }
 
         $mform->closeHeaderBefore('profile');
+
+        $this->set_profile_options($iscreate);
+    }
+
+    private function set_profile_options($iscreate) {
+        $this->set_element_options('email', array('type' => 'text', 'required' => $iscreate, 'maxlength' => 128, 'email' => true));
+        $this->set_element_options('first_name', array('type' => 'text', 'required' => true, 'maxlength' => 64));
+        $this->set_element_options('last_name', array('type' => 'text', 'required' => true, 'maxlength' => 63));
+        $this->set_element_options('type', array('required' => true));
+        $this->set_element_options('dept', array('type' => 'text', 'maxlength' => 40));
+        $this->set_element_options('timezone', array('type' => 'text', 'default' => 'America/Sao_Paulo'));
+
+        if ($iscreate === false) {
+            $this->set_element_options('pmi', array('type' => 'int', 'required' => true, 'rangelength' => array(10, 10)));
+        }
     }
 
     private function add_meeting_basic() {
         $mform = $this->_form;
 
         $mform->addElement('header', 'meeting_basic', get_string('meeting_basic', 'local_zoomadmin'));
-
         $this->add_advcheckbox('disable_chat');
         $this->add_advcheckbox('disable_private_chat');
         $this->add_advcheckbox('enable_auto_saving_chats', true);
@@ -149,7 +161,6 @@ class user_get_form extends moodleform {
         $mform = $this->_form;
 
         $mform->addElement('header', 'meeting_advanced', get_string('meeting_advanced', 'local_zoomadmin'));
-
         $this->add_advcheckbox('enable_breakout_room', true);
         $this->add_advcheckbox('enable_remote_support', true);
         $this->add_advcheckbox('enable_file_transfer', true);
@@ -167,7 +178,6 @@ class user_get_form extends moodleform {
         $mform = $this->_form;
 
         $mform->addElement('header', 'recording', get_string('recording', 'local_zoomadmin'));
-
         $this->add_advcheckbox('disable_recording');
 
         $this->add_advcheckbox('enable_cmr', true);
@@ -197,7 +207,6 @@ class user_get_form extends moodleform {
         $mform = $this->_form;
 
         $mform->addElement('header', 'security', get_string('security', 'local_zoomadmin'));
-
         $this->add_advcheckbox('enable_e2e_encryption');
         $this->add_advcheckbox('enable_phone_participants_password');
 
@@ -205,25 +214,25 @@ class user_get_form extends moodleform {
         $mform->setExpanded('security');
     }
 
-    private function setElementOptions($elementname, $options) {
+    private function set_element_options($elementname, $options) {
         $mform = $this->_form;
 
         foreach ($options as $key => $value) {
             if ($key === 'type') {
-                $this->setElementType($elementname, $value);
-            } else if ($key === 'required' && $value == true) {
-                $mform->addRule($elementname, null, 'required', null, 'client');
+                $this->set_element_type($elementname, $value);
+            } else if (in_array ($key, array('required', 'email')) && $value == true) {
+                $mform->addRule($elementname, null, $key, null, 'client');
             } else if ($key === 'default') {
                 $mform->setDefault($elementname, $value);
             } else if ($key === 'maxlength') {
-                $mform->addRule($elementname, get_string('maximumchars', '', $value), 'maxlength', $value, 'client');
+                $mform->addRule($elementname, get_string('maximumchars', '', $value), $key, $value, 'client');
             } else if ($key === 'rangelength') {
-                $mform->addRule($elementname, get_string('err_exactlength', 'local_zoomadmin', $value[0]), 'rangelength', $value, 'client');
+                $mform->addRule($elementname, get_string('err_exactlength', 'local_zoomadmin', $value[0]), $key, $value, 'client');
             }
         }
     }
 
-    private function setElementType($elementname, $typestring) {
+    private function set_element_type($elementname, $typestring) {
         if ($typestring === 'text') {
             $type = PARAM_TEXT;
         } else if ($typestring === 'int') {

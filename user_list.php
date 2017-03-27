@@ -46,6 +46,6 @@ $page = new \local_zoomadmin\output\manage_zoom($params);
 
 echo $output->header() . $output->heading($title);
 
-echo $output->render_user_list($page);
+echo $output->render_page($page);
 
 echo $output->footer();
