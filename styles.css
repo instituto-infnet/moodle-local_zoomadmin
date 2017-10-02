@@ -1,3 +1,7 @@
 .path-admin-local-zoomadmin img.email-pic {
     width: 20px;
 }
+
+.path-admin-local-zoomadmin .nowrap {
+    white-space: nowrap;
+}

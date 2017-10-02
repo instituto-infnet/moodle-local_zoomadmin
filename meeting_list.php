@@ -14,7 +14,7 @@
 // You should have received a copy of the GNU General Public License
 // along with Moodle.  If not, see <http://www.gnu.org/licenses/>.
 /**
- * Página com lista de usuários do Zoom.
+ * Página com lista de reuniões do Zoom.
  *
  * @package    local_zoomadmin
  * @copyright  2017 Instituto Infnet {@link http://infnet.edu.br}
@@ -26,23 +26,23 @@ require_once($CFG->libdir . '/adminlib.php');
 
 $params = array('page_number' => optional_param('page_number', null, PARAM_INT));
 
-$url = new moodle_url('/local/zoomadmin/user_list.php', $params);
+$url = new moodle_url('/local/zoomadmin/meeting_list.php', $params);
 $PAGE->set_url($url);
 $context = context_system::instance();
 $PAGE->set_context($context);
 
-$title = get_string('pluginname', 'local_zoomadmin') . ' - ' . get_string('command_user_list', 'local_zoomadmin');
+$title = get_string('pluginname', 'local_zoomadmin') . ' - ' . get_string('command_meeting_list', 'local_zoomadmin');
 $PAGE->set_title($title);
 $PAGE->set_pagelayout('admin');
 
 require_login();
-admin_externalpage_setup('local_zoomadmin_user_list');
+admin_externalpage_setup('local_zoomadmin_meeting_list');
 require_capability('local/zoomadmin:managezoom', $context);
 
 $output = $PAGE->get_renderer('local_zoomadmin');
 $page = new \local_zoomadmin\output\manage_zoom($params);
 
-echo $output->header() . $output->heading($title);
+echo $output->header() . $output->heading($title);;
 
 echo $output->render_page($page);
 

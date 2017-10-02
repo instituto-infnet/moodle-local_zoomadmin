@@ -41,14 +41,28 @@ require_once(__DIR__ . '/../credentials.php');
  */
 class zoomadmin {
     const BASE_URL = 'https://api.zoom.us/v1';
+    /** 
+     * @var int ERR_MAX_REQUESTS Código de erro de quantidade máxima
+     *                           de requisições excedida
+     */
+    const ERR_MAX_REQUESTS = 403;
 
     var $commands = array();
-
+    
     public function __construct() {
         $this->populate_commands();
     }
 
-    public function request(command $command, $params = array()) {
+    public function request(command $command, $params = array(), $attemptcount = 1) {
+        /**
+         * @var int $attemptsleeptime Tempo (microssegundos) que deve ser
+         *                            aguardado para tentar novamente quando o
+         *                            máximo de requisições for atingido
+         */
+        $attemptsleeptime = 100000;
+        /** @var int $maxattemptcount Número máximo de novas tentativas */
+        $maxattemptcount = 10;
+        
         $ch = curl_init($this->get_api_url($command));
         curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
         curl_setopt($ch, CURLOPT_POSTFIELDS, http_build_query(array_merge($this->get_credentials(), $params), null, '&'));
@@ -56,6 +70,20 @@ class zoomadmin {
         $response = json_decode(curl_exec($ch));
         curl_close($ch);
 
+        if (isset($response->error)) {
+            if ($response->error->code === $this::ERR_MAX_REQUESTS && $attemptcount <= $maxattemptcount) {
+                usleep($attemptsleeptime);
+                return $this->request($command, $params, $attemptcount + 1);
+            } else {
+                $errorresponse = clone $response;
+                $errorresponse->command = $command;
+                $errorresponse->params = $params;
+                $errorresponse->attempts = $attemptcount;
+
+                print_object($errorresponse);
+            }
+        }
+        
         return $response;
     }
 
@@ -82,12 +110,16 @@ class zoomadmin {
 
     private function populate_commands() {
         $this->commands['user_list'] = new command('user', 'list');
-        $this->commands['meeting_list'] = new command('meeting', 'list');
-
         $this->commands['user_pending'] = new command('user', 'pending', false);
         $this->commands['user_get'] = new command('user', 'get', false);
         $this->commands['user_create'] = new command('user', 'create', false);
         $this->commands['user_update'] = new command('user', 'update', false);
+        
+        $this->commands['meeting_list'] = new command('meeting', 'list');
+        $this->commands['meeting_live'] = new command('meeting', 'live', false);
+        $this->commands['meeting_get'] = new command('meeting', 'get', false);
+        $this->commands['meeting_create'] = new command('meeting', 'create', false);
+        $this->commands['meeting_update'] = new command('meeting', 'update', false);
     }
 
     private function get_credentials() {

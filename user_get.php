@@ -14,7 +14,7 @@
 // You should have received a copy of the GNU General Public License
 // along with Moodle.  If not, see <http://www.gnu.org/licenses/>.
 /**
- * Página com as funções de administração do Zoom.
+ * Página com formulário de informações de usuário.
  *
  * @package    local_zoomadmin
  * @copyright  2017 Instituto Infnet {@link http://infnet.edu.br}

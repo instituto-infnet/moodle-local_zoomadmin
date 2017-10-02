@@ -1,0 +1,132 @@
+{{{button_add}}}
+
+<h3>{{#str}}meeting_live,local_zoomadmin{{/str}}</h3>
+{{^live}}
+    <p>{{#str}}no_meetings,local_zoomadmin{{/str}}</p>
+{{/live}}
+{{#live.0}}
+<table class="table">
+    <thead>
+        <tr>
+            <th scope="col">{{#str}}meeting_topic,local_zoomadmin{{/str}}</th>
+            <th scope="col">{{#str}}type,local_zoomadmin{{/str}}</th>
+            <th scope="col">{{#str}}status,local_zoomadmin{{/str}}</th>
+            <th scope="col">{{#str}}start_time,local_zoomadmin{{/str}}</th>
+            <th scope="col">{{#str}}host,local_zoomadmin{{/str}}</th>
+            <th scope="col">{{#str}}duration,local_zoomadmin{{/str}}</th>
+            <th scope="col">{{#str}}id,local_zoomadmin{{/str}}</th>
+            <th scope="col">&nbsp;</th>
+        </tr>
+    </thead>
+    <tbody>
+    {{#live}}
+        <tr>
+            <td>{{topic}}</td>
+            <td>{{type_string}}</td>
+            <td>{{status}}</td>
+            <td>{{start_time_formatted}}</td>
+            <td><a href="{{{user_get_url}}}?id={{host_id}}">{{#host}}{{first_name}} {{last_name}}{{/host}}</a></td>
+            <td>{{duration}}</td>
+            <td class="nowrap"><a href="{{join_url}}">{{id_formatted}}</a></td>
+            <td class="nowrap">
+                <a href="{{{meeting_get_url}}}?id={{id}}">{{#str}}details,local_zoomadmin{{/str}}</a>
+                |
+                <a href="{{{meeting_get_url}}}?id={{id}}&zoom_command=meeting_update">{{#str}}edit{{/str}}</a>
+            </td>
+        </tr>
+    {{/live}}
+    </tbody>
+</table>
+{{/live.0}}
+
+{{#meetings}}
+    <h3>{{#str}}meeting_upcoming,local_zoomadmin{{/str}}</h3>
+    {{^upcoming}}
+        <p>{{#str}}no_meetings,local_zoomadmin{{/str}}</p>
+    {{/upcoming}}
+    {{#upcoming.0}}
+    <table class="table">
+        <thead>
+            <tr>
+                <th scope="col">{{#str}}meeting_topic,local_zoomadmin{{/str}}</th>
+                <th scope="col">{{#str}}type,local_zoomadmin{{/str}}</th>
+                <th scope="col">{{#str}}status,local_zoomadmin{{/str}}</th>
+                <th scope="col">{{#str}}start_time,local_zoomadmin{{/str}}</th>
+                <th scope="col">{{#str}}host,local_zoomadmin{{/str}}</th>
+                <th scope="col">{{#str}}duration,local_zoomadmin{{/str}}</th>
+                <th scope="col">{{#str}}id,local_zoomadmin{{/str}}</th>
+                <th scope="col">&nbsp;</th>
+            </tr>
+        </thead>
+        <tbody>
+        {{#upcoming}}
+            <tr>
+                <td>{{topic}}</td>
+                <td>{{type_string}}</td>
+                <td>{{status}}</td>
+                <td>{{start_time_formatted}}</td>
+                <td><a href="{{{user_get_url}}}?id={{host_id}}">{{#host}}{{first_name}} {{last_name}}{{/host}}</a></td>
+                <td>{{duration}}</td>
+                <td class="nowrap"><a href="{{join_url}}">{{id_formatted}}</a></td>
+                <td class="nowrap">
+                    <a href="{{{meeting_get_url}}}?id={{id}}">{{#str}}details,local_zoomadmin{{/str}}</a>
+                    |
+                    <a href="{{{meeting_get_url}}}?id={{id}}&zoom_command=meeting_update">{{#str}}edit{{/str}}</a>
+                </td>
+            </tr>
+        {{/upcoming}}
+        </tbody>
+    </table>
+    {{/upcoming.0}}
+
+    <h3>{{#str}}meeting_past,local_zoomadmin{{/str}}</h3>
+    {{^past}}
+        <p>{{#str}}no_meetings,local_zoomadmin{{/str}}</p>
+    {{/past}}
+    {{#past.0}}
+    <table class="table">
+        <thead>
+            <tr>
+                <th scope="col">{{#str}}meeting_topic,local_zoomadmin{{/str}}</th>
+                <th scope="col">{{#str}}type,local_zoomadmin{{/str}}</th>
+                <th scope="col">{{#str}}status,local_zoomadmin{{/str}}</th>
+                <th scope="col">{{#str}}start_time,local_zoomadmin{{/str}}</th>
+                <th scope="col">{{#str}}host,local_zoomadmin{{/str}}</th>
+                <th scope="col">{{#str}}duration,local_zoomadmin{{/str}}</th>
+                <th scope="col">{{#str}}id,local_zoomadmin{{/str}}</th>
+                <th scope="col">&nbsp;</th>
+            </tr>
+        </thead>
+        <tbody>
+        {{#past}}
+            <tr>
+                <td>{{topic}}</td>
+                <td>{{type_string}}</td>
+                <td>{{status}}</td>
+                <td>{{start_time_formatted}}</td>
+                <td><a href="{{{user_get_url}}}?id={{host_id}}">{{#host}}{{first_name}} {{last_name}}{{/host}}</a></td>
+                <td>{{duration}}</td>
+                <td class="nowrap"><a href="{{join_url}}">{{id_formatted}}</a></td>
+                <td class="nowrap">
+                    <a href="{{{meeting_get_url}}}?id={{id}}">{{#str}}details,local_zoomadmin{{/str}}</a>
+                    |
+                    <a href="{{{meeting_get_url}}}?id={{id}}&zoom_command=meeting_update">{{#str}}edit{{/str}}</a>
+                </td>
+            </tr>
+        {{/past}}
+        </tbody>
+    </table>
+    {{/past.0}}
+{{/meetings}}
+
+<div>
+    {{#str}}page{{/str}}:
+    {{#pages}}
+        {{#current}}
+            <span>{{number}}</span>
+        {{/current}}
+        {{^current}}
+            <a href="{{{user_list_url}}}?page_number={{number}}">{{number}}</a>
+        {{/current}}
+    {{/pages}}
+</div>

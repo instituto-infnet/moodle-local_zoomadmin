@@ -30,10 +30,10 @@ require_once($CFG->libdir.'/formslib.php');
 /**
  * Classe do formulário de usuário.
  *
- * Exibe um formulário com a seguinte sequência de campos de seleção, usado para
- * filtrar as listas de cursos e estudantes:
+ * Exibe um formulário com os seguintes campos:
  *
  * Perfil
+ * - E-mail
  * - Nome
  * - Sobrenome
  * - Tipo de usuário
@@ -46,12 +46,9 @@ require_once($CFG->libdir.'/formslib.php');
  * - Gravação automática do chat
  * - Permitir suspender participante
  * - Tocar som quando participante entra ou sai
- * - Tocar som apenas para apresentador
  * - Não enviar feedback ao Zoom após reunião
  * - Co-apresentadores
  * - Anotações
- * - Enquete
- * - Desabilitar notificação por e-mail ao cancelar reunião
  * Configurações de reunião (avançadas)
  * - Subgrupos em reunião
  * - Suporte remoto
@@ -60,6 +57,7 @@ require_once($CFG->libdir.'/formslib.php');
  * - Legenda (closed caption)
  * - Controle remoto da câmera
  * - Compartilhamento de câmera dupla
+ * - Desabilitar notificação por e-mail ao cancelar reunião
  * Gravação
  * - Desabilitar gravação
  * - Gravação na nuvem
@@ -113,7 +111,7 @@ class user_get_form extends moodleform {
 
         $mform->addElement('text', 'first_name', get_string('firstname'));
         $mform->addElement('text', 'last_name', get_string('lastname'));
-        $mform->addElement('select', 'type', get_string('usertype', 'local_zoomadmin'), $this->get_user_types());
+        $mform->addElement('select', 'type', get_string('user_type', 'local_zoomadmin'), $this->get_user_types());
         $mform->addElement('text', 'dept', get_string('department', 'local_zoomadmin'));
         $mform->addElement('text', 'timezone', get_string('timezone'));
 
@@ -259,9 +257,9 @@ class user_get_form extends moodleform {
 
     private function get_user_types() {
         return array(
-            '1' => get_string('type_1', 'local_zoomadmin'),
-            '2' => get_string('type_2', 'local_zoomadmin'),
-            '3' => get_string('type_3', 'local_zoomadmin')
+            '1' => get_string('user_type_1', 'local_zoomadmin'),
+            '2' => get_string('user_type_2', 'local_zoomadmin'),
+            '3' => get_string('user_type_3', 'local_zoomadmin')
         );
     }
 }
