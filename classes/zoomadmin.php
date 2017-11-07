@@ -120,6 +120,10 @@ class zoomadmin {
         $this->commands['meeting_get'] = new command('meeting', 'get', false);
         $this->commands['meeting_create'] = new command('meeting', 'create', false);
         $this->commands['meeting_update'] = new command('meeting', 'update', false);
+
+        $this->commands['recording_list'] = new command('recording', 'list');
+        $this->commands['recording_get'] = new command('recording', 'get', false);
+        $this->commands['recording_delete'] = new command('recording', 'delete', false);
     }
 
     private function get_credentials() {

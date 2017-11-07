@@ -1,0 +1,48 @@
+<table class="table">
+    <thead>
+        <tr>
+            <th scope="col">{{#str}}host,local_zoomadmin{{/str}}</th>
+            <th scope="col">{{#str}}meeting_topic,local_zoomadmin{{/str}}</th>
+            <th scope="col">{{#str}}start_time,local_zoomadmin{{/str}}</th>
+            <th scope="col">{{#str}}end_time,local_zoomadmin{{/str}}</th>
+            <th scope="col">{{#str}}duration,local_zoomadmin{{/str}}</th>
+            <th scope="col">{{#str}}id,local_zoomadmin{{/str}}</th>
+            <th scope="col">{{#str}}file_type,local_zoomadmin{{/str}}</th>
+            <th scope="col">{{#str}}size,local_zoomadmin{{/str}}</th>
+            <th scope="col">{{#str}}status,local_zoomadmin{{/str}}</th>
+            <th scope="col">&nbsp;</th>
+        </tr>
+    </thead>
+    <tbody>
+    {{#meetings}}
+        {{#recording_files}}
+        <tr>
+            <td><a href="{{{user_get_url}}}?id={{host_id}}">{{#host}}{{first_name}} {{last_name}}{{/host}}</a></td>
+            <td>{{topic}}</td>
+            <td>{{recording_start_formatted}}</td>
+            <td>{{recording_end_formatted}}</td>
+            <td>{{recording_duration}}</td>
+            <td class="nowrap">{{meeting_number_formatted}}</td>
+            <td>{{file_type_string}}</td>
+            <td>{{file_size_formatted}}</td>
+            <td>{{recording_status_string}}</td>
+            <td class="nowrap">
+                <a href="{{{play_url}}}" target="_blank">{{#str}}view_recording,local_zoomadmin{{/str}}</a>
+            </td>
+        </tr>
+        {{/recording_files}}
+    {{/meetings}}
+    </tbody>
+</table>
+
+<div>
+    {{#str}}page{{/str}}:
+    {{#pages}}
+        {{#current}}
+            <span>{{number}}</span>
+        {{/current}}
+        {{^current}}
+            <a href="{{{user_list_url}}}?page_number={{number}}">{{number}}</a>
+        {{/current}}
+    {{/pages}}
+</div>
