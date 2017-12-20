@@ -55,5 +55,11 @@ sftp-config.json
 # Arquivo de configuração do plugin EditorConfig
 .editorconfig
 
+# Arquivos do Eclipse
+.buildpath
+.project
+/.settings/
+*.rexpfd
+
 # Arquivo com credenciais de produção
 credentials.php
