@@ -47,6 +47,7 @@ use \templatable;
 class manage_zoom implements \renderable/*, \templatable*/ {
     const MAX_PAGE_SIZE = 300;
     const KBYTE_BYTES = 1024;
+    const MIN_VIDEO_SIZE = self::KBYTE_BYTES * self::KBYTE_BYTES * 20;
 
     var $zoomadmin;
     var $params;
@@ -157,8 +158,6 @@ class manage_zoom implements \renderable/*, \templatable*/ {
     }
 
     public function add_recordings_to_page_by_meeting_id($meetingid) {
-        global $DB;
-
         $meetingrecordings = $this->get_recording($meetingid);
         $meetingnumber = $meetingrecordings->meeting_number;
         $pagedata = $this->get_recordings_page_data($meetingnumber);
@@ -169,11 +168,16 @@ class manage_zoom implements \renderable/*, \templatable*/ {
             $newcontent = $this->get_new_recordings_page_content($pagedata, $meetingrecordings);
         }
 
-        if ($newcontent !== false) {
-            $pagedata->content = $newcontent;
-            return $DB->update_record('page', $pagedata);
+        if (substr($newcontent, 0, 5) !== 'error') {
+            $pageupdated = $this->update_page_content($pagedata, $newcontent);
         } else {
-            return get_string('error_no_recordings_found', 'local_zoomadmin');
+            return $newcontent;
+        }
+
+        if ($pageupdated === true) {
+            return get_string('recordings_added_to_page', 'local_zoomadmin');
+        } else {
+            return get_string('error_add_recordings_to_page', 'local_zoomadmin');
         }
     }
 
@@ -411,61 +415,46 @@ class manage_zoom implements \renderable/*, \templatable*/ {
 
     private function get_recordings_page_data($meetingnumber) {
         global $DB;
-        $pageid;
-
-        switch ($meetingnumber) {
-            case '755587949':
-                $pageid = 9418;
-                break;
-            case '337519519':
-                $pageid = 9419;
-                break;
-            case '124883715':
-                $pageid = 9421;
-                break;
-            case '710121384':
-                $pageid = 9422;
-                break;
-            case '610770360':
-                $pageid = 9423;
-                break;
-            case '641838147':
-                $pageid = 9424;
-                break;
-            case '428928412':
-                $pageid = 9427;
-                break;
-            case '709745799':
-                $pageid = 9429;
-                break;
-            case '124356557':
-                $pageid = 9430;
-                break;
-            case '792418949':
-                $pageid = 9431;
-                break;
-            case '597975291':
-                $pageid = 9437;
-                break;
-            case '846949797':
-                $pageid = 9438;
-                break;
-        }
-
-        if ($pageid) {
-            return $DB->get_record('page', array('id'=>$pageid));
-        }
+        return $DB->get_record_sql("
+            select p.*
+            from {local_zoomadmin_recordpages} rp
+                join {course_modules} cm on cm.id = rp.pagecmid
+                join {modules} m on m.id = cm.module
+                    and m.name = 'page'
+                join {page} p on p.id = cm.instance
+            where rp.zoommeetingnumber = ?
+            ",
+            array($meetingnumber)
+        );
     }
 
     private function get_new_recordings_page_content($pagedata, $meetingrecordings) {
+        $content = $pagedata->content;
         $recordingurls = $this->get_recording_urls_for_page($meetingrecordings->recording_files);
         $recordingcount = count($recordingurls);
 
+        $doc = new \DOMDocument();
+
         if ($recordingcount > 0) {
+            $urlul = $doc->createElement('ul');
+            $multiplevideos = ($recordingurls[$recordingcount - 1]['videoindex'] > 1);
+
+            foreach ($recordingurls as $url) {
+                if (strpos($content, $url['url']) !== false) {
+                    return get_string('error_recording_already_added');
+                }
+
+                $anchortext = $url['text'] . (($multiplevideos) ? (' - ' . get_string('recording_part', 'local_zoomadmin') . ' ' . $url['videoindex']) : '');
+
+                $li = $urlul->appendChild($doc->createElement('li'));
+                $a = $li->appendChild($doc->createElement('a', $anchortext));
+                $a->setAttribute('href', $url['url']);
+                $a->setAttribute('target', '_blank');
+            }
+
             $classnumber = 1;
 
-            $doc = new \DOMDocument();
-            $doc->loadHTML(mb_convert_encoding($pagedata->content, 'HTML-ENTITIES', 'UTF-8'));
+            $doc->loadHTML(mb_convert_encoding($content, 'HTML-ENTITIES', 'UTF-8'));
 
             $classdate = (new \DateTime($meetingrecordings->start_time))->setTimezone($this->get_meeting_timezone($meetingrecordings))->format('d/m/Y');
 
@@ -482,27 +471,16 @@ class manage_zoom implements \renderable/*, \templatable*/ {
             }
 
             $doc->appendChild($doc->createElement('h2', $classdate . ' - Aula ' . $classnumber));
-            $urlul = $doc->appendChild($doc->createElement('ul'));
-
-            $multiplevideos = ($recordingurls[$recordingcount - 1]['videoindex'] > 1);
-
-            foreach ($recordingurls as $url) {
-                $anchortext = $url['text'] . (($multiplevideos) ? (' - ' . get_string('recording_part', 'local_zoomadmin') . ' ' . $url['videoindex']) : '');
-
-                $li = $urlul->appendChild($doc->createElement('li'));
-                $a = $li->appendChild($doc->createElement('a', $anchortext));
-                $a->setAttribute('href', $url['url']);
-                $a->setAttribute('target', '_blank');
-            }
+            $urlul = $doc->importNode($urlul, true);
+            $doc->appendChild($urlul);
 
             return $doc->saveHTML();
         } else {
-            return false;
+            return get_string('error_no_recordings_found', format_file_size($this::MIN_VIDEO_SIZE));
         }
     }
 
     private function get_recording_urls_for_page($recordings) {
-        $minvideosize = pow($this::KBYTE_BYTES, 2) * 20;
         $recordinglist = array();
         $ignoredvideo = true;
         $videoindex = 0;
@@ -511,7 +489,7 @@ class manage_zoom implements \renderable/*, \templatable*/ {
             $filetype = $recording->file_type;
 
             if ($filetype === 'MP4') {
-                if ($recording->file_size >= $minvideosize) {
+                if ($recording->file_size >= $this::MIN_VIDEO_SIZE) {
                     $videoindex++;
 
                     $recordinglist[] = array(
@@ -534,6 +512,16 @@ class manage_zoom implements \renderable/*, \templatable*/ {
         }
 
         return $recordinglist;
+    }
+
+    private function update_page_content($pagedata, $newcontent) {
+        global $USER, $DB;
+
+        $pagedata->content = $newcontent;
+        $pagedata->usermodified = $USER->id;
+        $pagedata->timemodified = (new \DateTime())->getTimestamp();
+
+        return $DB->update_record('page', $pagedata);
     }
 
     private function sort_users_by_name($users) {

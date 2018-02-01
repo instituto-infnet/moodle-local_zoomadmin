@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<XMLDB PATH="local/zoomadmin/db" VERSION="20161209" COMMENT="XMLDB file for Moodle local/zoomadmin"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:noNamespaceSchemaLocation="../../../lib/xmldb/xmldb.xsd"
+>
+  <TABLES>
+    <TABLE NAME="local_zoomadmin_recordpages" COMMENT="Moodle page resources where specific Zoom meetings' recordings will be added">
+      <FIELDS>
+        <FIELD NAME="id" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="true"/>
+        <FIELD NAME="pagecmid" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="false" COMMENT="Page course module ID"/>
+        <FIELD NAME="zoommeetingnumber" TYPE="int" LENGTH="11" NOTNULL="true" SEQUENCE="false" COMMENT="Zoom meeting number"/>
+      </FIELDS>
+      <KEYS>
+        <KEY NAME="primary" TYPE="primary" FIELDS="id"/>
+      </KEYS>
+      <INDEXES>
+        <INDEX NAME="pagecmid" UNIQUE="true" FIELDS="pagecmid"/>
+        <INDEX NAME="zoommeetingnumber" UNIQUE="true" FIELDS="zoommeetingnumber"/>
+      </INDEXES>
+    </TABLE>
+  </TABLES>
+</XMLDB>
