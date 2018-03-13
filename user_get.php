@@ -57,7 +57,7 @@ if ($mform->is_cancelled()) {
     if (!isset($fromform->email)) {
         $fromform->email = $fromform->email_hidden;
     }
-    
+
     $response = $zoomadmin->handle_form($fromform);
 
     if (isset($response->error)) {
@@ -72,7 +72,7 @@ if ($mform->is_cancelled()) {
         );
     }
 } else if ($params['zoom_command'] !== 'user_create') {
-    $userdata = $zoomadmin->request($zoomadmin->commands['user_get'], array('id' => $params['id']));
+    $userdata = $zoomadmin->get_user($params['id']);
     $userdata->email_hidden = $userdata->email;
     $mform->set_data($userdata);
 }

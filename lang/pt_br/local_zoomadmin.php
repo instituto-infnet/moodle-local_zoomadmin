@@ -26,6 +26,7 @@
 $string['add_user'] = 'Criar usuário';
 $string['add_meeting'] = 'Criar reunião';
 $string['add_recordings_to_page'] = 'Adicionar à página';
+$string['add_all_recordings_to_page'] = 'Adicionar todas as gravações pendentes às páginas';
 $string['auto_delete_cmr_days'] = 'Quantidade de dias para exclusão';
 $string['category_meeting'] = 'Comandos de reunião';
 $string['category_recording'] = 'Comandos de gravação';
@@ -74,6 +75,7 @@ $string['error_add_recordings_to_page'] = 'Erro ao adicionar gravação à pági
 $string['error_no_page_instance_found'] = 'Página para gravações da reunião de ID {$a} não encontrada.';
 $string['error_no_recordings_found'] = 'Não foi encontrado nenhum vídeo acima do tamanho mínimo ({$a}).';
 $string['error_recording_already_added'] = 'Gravação já havia sido adicionada à página.';
+$string['error_updating_recordpages_table'] = 'Erro ao atualizar tabela `local_zoomadmin_recordpages`. ID do registro = {$a}';
 $string['file_type'] = 'Tipo';
 $string['file_type_CHAT'] = 'Chat';
 $string['file_type_M4A'] = 'Áudio';

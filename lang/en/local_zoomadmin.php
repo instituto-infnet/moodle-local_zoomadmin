@@ -26,6 +26,7 @@
 $string['add_user'] = 'Create user';
 $string['add_meeting'] = 'Create meeting';
 $string['add_recordings_to_page'] = 'Add to page';
+$string['add_all_recordings_to_page'] = 'Add all pending recordings to pages';
 $string['auto_delete_cmr_days'] = 'Number of days for auto delete';
 $string['category_meeting'] = 'Meeting commands';
 $string['category_recording'] = 'Recording commands';
@@ -74,6 +75,7 @@ $string['error_add_recordings_to_page'] = 'Error adding recording to the page.';
 $string['error_no_page_instance_found'] = 'Page for recording links from meeting ID {$a} not found.';
 $string['error_no_recordings_found'] = 'No videos over the minimum file size found.';
 $string['error_recording_already_added'] = 'Recording was already added to page.';
+$string['error_updating_recordpages_table'] = 'Error updating `local_zoomadmin_recordpages` table. Row ID = {$a}';
 $string['file_type'] = 'File type';
 $string['file_type_CHAT'] = 'Chat';
 $string['file_type_M4A'] = 'Audio';

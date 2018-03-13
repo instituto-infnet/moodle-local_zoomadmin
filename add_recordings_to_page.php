@@ -44,10 +44,6 @@ $page = new \local_zoomadmin\output\manage_zoom($params);
 
 echo $OUTPUT->header() . $OUTPUT->heading($title);;
 
-if (isset($params['meeting_id'])) {
-	echo $page->add_recordings_to_page($params['meeting_id']);
-} else {
-	echo 'Adicionar todas as gravações pendentes às páginas.';
-}
+echo $page->add_recordings_to_page($params['meeting_id']);
 
 echo $OUTPUT->footer();

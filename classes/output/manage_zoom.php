@@ -106,7 +106,10 @@ class manage_zoom implements \renderable/*, \templatable*/ {
      * @return \stdClass Dados a serem utilizados pelo template.
      */
     public function export_meeting_list_for_template($renderer) {
-        $data = $this->zoomadmin->get_meetings_list($this->params);
+        $zoomadmin = $this->zoomadmin;
+
+        $data = $zoomadmin->get_meetings_list($this->params);
+        $data->meetings = $zoomadmin->sort_meetings_by_start($data->meetings);
 
         $data->meeting_get_url = './meeting_get.php';
         $data->meeting_list_url = './meeting_list.php';
@@ -131,6 +134,7 @@ class manage_zoom implements \renderable/*, \templatable*/ {
         $zoomadmin = $this->zoomadmin;
 
         $data = $zoomadmin->get_recordings_list($this->params);
+        $data->meetings = $zoomadmin->sort_meetings_by_start($data->meetings, false);
 
         $data->recording_list_url = './recording_list.php';
         $data->recording_get_url = './recording_get.php';
@@ -143,7 +147,19 @@ class manage_zoom implements \renderable/*, \templatable*/ {
     }
 
     public function add_recordings_to_page($meetingid) {
-        return $this->zoomadmin->add_recordings_to_page_by_meeting_id($meetingid);
+        $response = $this->zoomadmin->add_recordings_to_page($meetingid);
+
+        if (is_array($response)) {
+            $output = '<ul>';
+            foreach ($response as $message) {
+                $output .= '<li>' . $message . '</li>';
+            }
+            $output .= '</ul>';
+        } else {
+            $output = $response;
+        }
+
+        return $output;
     }
 
     private function get_index_commands() {

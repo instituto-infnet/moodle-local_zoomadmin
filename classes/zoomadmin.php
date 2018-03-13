@@ -56,7 +56,7 @@ class zoomadmin {
         $this->populate_commands();
     }
 
-    public function request(command $command, $params = array(), $attemptcount = 1) {
+    private function request(command $command, $params, $attemptcount = 1) {
         /**
          * @var int $attemptsleeptime Tempo (microssegundos) que deve ser
          *                            aguardado para tentar novamente quando o
@@ -65,6 +65,8 @@ class zoomadmin {
         $attemptsleeptime = 100000;
         /** @var int $maxattemptcount Número máximo de novas tentativas */
         $maxattemptcount = 10;
+
+        $params = (is_array($params)) ? $params : array();
 
         $ch = curl_init($this->get_api_url($command));
         curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
@@ -125,6 +127,10 @@ class zoomadmin {
         return $data;
     }
 
+    public function get_user($userid) {
+        return $this->request($this->commands['user_get'], array('id' => $userid));
+    }
+
     public function get_meetings_list($params) {
         $meetingsdata = new \stdClass();
         $commands = $this->commands;
@@ -175,6 +181,26 @@ class zoomadmin {
         return $meetingsdata;
     }
 
+    public function sort_meetings_by_start($meetings, $ascending = true) {
+        $asc = function($meeting1, $meeting2) {
+            if ($meeting1->start_time == $meeting2->start_time) {
+                return 0;
+            }
+            return ($meeting1->start_time < $meeting2->start_time) ? -1 : 1;
+        };
+
+        $desc = function($meeting1, $meeting2) {
+            if ($meeting1->start_time == $meeting2->start_time) {
+                return 0;
+            }
+            return ($meeting1->start_time > $meeting2->start_time) ? -1 : 1;
+        };
+
+        usort($meetings, ($ascending === true) ? $asc : $desc);
+
+        return $meetings;
+    }
+
     public function get_recordings_list($params) {
         $commands = $this->commands;
 
@@ -202,38 +228,43 @@ class zoomadmin {
             }
         }
 
-        $recordingsdata->meetings = $this->sort_meetings_by_start($recordingsdata->meetings, false);
-
         return $recordingsdata;
     }
 
-    public function add_recordings_to_page_by_meeting_id($meetingid) {
+    public function add_recordings_to_page($meetingid) {
+        if ($meetingid == null) {
+            return $this->add_all_recordings_to_page();
+        }
+
         $meetingrecordings = $this->get_recording($meetingid);
         $meetingnumber = $meetingrecordings->meeting_number;
-        $pagedata = $this->get_recordings_page_data($meetingnumber);
+        $pagedata = array_pop($this->get_recordings_page_data($meetingnumber));
 
-        if ($pagedata === null) {
+        if (($meetingid !== null && $meetingnumber === null) || $pagedata === null) {
             return get_string('error_no_page_instance_found', 'local_zoomadmin', $this->format_meeting_number($meetingnumber));
-        } else  {
-            $newcontent = $this->get_new_recordings_page_content($pagedata, $meetingrecordings);
         }
 
-        if (substr($newcontent, 0, 5) !== 'error') {
-            $pageupdated = $this->update_page_content($pagedata, $newcontent);
-        } else {
-            return get_string($newcontent, 'local_zoomadmin');
+        $newcontent = $this->get_new_recordings_page_content($pagedata, $meetingrecordings);
+
+        if ($newcontent === 'error_recording_already_added') {
+            $this->update_recordpage_timestamp($pagedata->recordpageid, $meetingrecordings->start_time_unix);
         }
+
+        if (substr($newcontent, 0, 5) === 'error') {
+            return get_string($newcontent, 'local_zoomadmin', $this->format_file_size($this::MIN_VIDEO_SIZE));
+        }
+
+        $pageupdated = $this->update_page_content($pagedata, $newcontent);
 
         if ($pageupdated === true) {
+            $this->update_recordpage_timestamp($pagedata->recordpageid, $meetingrecordings->start_time_unix);
             $recordingpageurl = new \moodle_url('/mod/page/view.php', array('id' => $pagedata->cmid));
             return get_string('recordings_added_to_page', 'local_zoomadmin', $recordingpageurl->out());
         } else {
-            return get_string('error_add_recordings_to_page', 'local_zoomadmin');
+            return get_string('error_add_recordings_to_page', 'local_zoomadmin', $recordingpageurl->out());
         }
-    }
 
-    public function get_last_recordings($days = 1) {
-        return;
+        return $return;
     }
 
     private function populate_commands() {
@@ -272,6 +303,7 @@ class zoomadmin {
             $timezone = $this->get_meeting_timezone($meeting);
 
             $meetings[$meetingindex]->encoded_uuid = urlencode($meeting->uuid);
+            $meetings[$meetingindex]->start_time_unix = strtotime($meeting->start_time);
 
             foreach($meeting->recording_files as $fileindex => $file) {
                 $recordingstarttime = (new \DateTime($file->recording_start))->setTimezone($timezone);
@@ -291,22 +323,6 @@ class zoomadmin {
                 $meetings[$meetingindex]->recording_files[$fileindex]->recording_status_string = get_string('recording_status_' . $file->status, 'local_zoomadmin');
             }
         }
-
-        return $meetings;
-    }
-
-    private function sort_meetings_by_start($meetings, $ascending = true) {
-        usort($meetings, function($meeting1, $meeting2) {
-            if ($meeting1->start_time == $meeting2->start_time) {
-                return 0;
-            }
-
-            if ($ascending === true) {
-                return ($meeting1->start_time < $meeting2->start_time) ? -1 : 1;
-            } else {
-                return ($meeting1->start_time > $meeting2->start_time) ? -1 : 1;
-            }
-        });
 
         return $meetings;
     }
@@ -398,23 +414,34 @@ class zoomadmin {
 
         $recordingmeeting = $this->request($commands['recording_get'], array('meeting_id' => $meetingid));
         $recordingmeeting->host = $this->request($commands['user_get'], array('id' => $recordingmeeting->host_id));
+        $recordingmeeting = array_pop($this->set_recordings_data(array($recordingmeeting)));
 
         return $recordingmeeting;
     }
 
     private function get_recordings_page_data($meetingnumber) {
         global $DB;
-        return $DB->get_record_sql("
-            select cm.id cmid, p.*
+
+        $sqlstring = "
+            select cm.id cmid,
+                p.*,
+                rp.id recordpageid,
+                rp.zoommeetingnumber,
+                rp.lastaddedtimestamp
             from {local_zoomadmin_recordpages} rp
                 join {course_modules} cm on cm.id = rp.pagecmid
                 join {modules} m on m.id = cm.module
                     and m.name = 'page'
                 join {page} p on p.id = cm.instance
+        ";
+
+        if ($meetingnumber !== null) {
+            $sqlstring .= "
             where rp.zoommeetingnumber = ?
-            ",
-            array($meetingnumber)
-        );
+            ";
+        }
+
+        return $DB->get_records_sql($sqlstring, array($meetingnumber));
     }
 
     private function get_new_recordings_page_content($pagedata, $meetingrecordings) {
@@ -465,7 +492,7 @@ class zoomadmin {
 
             return $doc->saveHTML();
         } else {
-            return get_string('error_no_recordings_found', 'local_zoomadmin', format_file_size($this::MIN_VIDEO_SIZE));
+            return 'error_no_recordings_found';
         }
     }
 
@@ -506,11 +533,55 @@ class zoomadmin {
     private function update_page_content($pagedata, $newcontent) {
         global $USER, $DB;
 
+        $timestamp = (new \DateTime())->getTimestamp();
+
         $pagedata->content = $newcontent;
         $pagedata->usermodified = $USER->id;
-        $pagedata->timemodified = (new \DateTime())->getTimestamp();
+        $pagedata->timemodified = $timestamp;
 
-        return $DB->update_record('page', $pagedata);
+        $pageupdated = $DB->update_record('page', $pagedata);
+
+        return $pageupdated;
+    }
+
+    private function update_recordpage_timestamp($id, $lastaddedtimestamp) {
+        global $DB;
+
+        return $DB->update_record(
+            'local_zoomadmin_recordpages',
+            array(
+                'id' => $id,
+                'lastaddedtimestamp' => $lastaddedtimestamp
+            )
+        );
+    }
+
+    private function add_all_recordings_to_page() {
+        $recordingsdata = $this->get_recordings_list();
+        $recordingsdata->meetings = $this->sort_meetings_by_start($recordingsdata->meetings);
+        $pagesdata = $this->get_recordings_page_data();
+
+        $meetingids = array();
+        foreach ($pagesdata as $pagedata) {
+            foreach ($recordingsdata->meetings as $meetingdata) {
+                if (
+                    $meetingdata->meeting_number == $pagedata->zoommeetingnumber
+                    && $meetingdata->start_time_unix > $pagedata->lastaddedtimestamp
+                ) {
+                    $responses[] = '<a href="https://www.zoom.us/recording/management/detail?meeting_id=' .
+                        $meetingdata->encoded_uuid .
+                        '" target="_blank">' .
+                        $meetingdata->topic .
+                        ' - ' .
+                        $meetingdata->recording_files[0]->recording_start_formatted .
+                        '</a> - ' .
+                        $this->add_recordings_to_page($meetingdata->uuid)
+                    ;
+                }
+            }
+        }
+
+        return $responses;
     }
 
     private function sort_users_by_name($users) {
@@ -525,9 +596,5 @@ class zoomadmin {
         });
 
         return $users;
-    }
-
-    private function add_recordings_to_page() {
-        return;
     }
 }
