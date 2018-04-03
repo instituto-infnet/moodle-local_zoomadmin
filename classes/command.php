@@ -51,8 +51,10 @@ class command {
 
         $this->url = './' . implode('_', array($this->category, $this->name)) . '.php';
 
-        $this->categorystringname = get_string(join('_', array('category', $this->category)), 'local_zoomadmin');
-        $this->stringname = get_string(join('_', array('command', $this->category, $this->name)), 'local_zoomadmin');
-        $this->stringdescription = get_string(join('_', array('command', $this->category, $this->name, 'description')), 'local_zoomadmin');
+        if ($showinindex === true) {
+            $this->categorystringname = get_string(join('_', array('category', $this->category)), 'local_zoomadmin');
+            $this->stringname = get_string(join('_', array('command', $this->category, $this->name)), 'local_zoomadmin');
+            $this->stringdescription = get_string(join('_', array('command', $this->category, $this->name, 'description')), 'local_zoomadmin');
+        }
     }
 }

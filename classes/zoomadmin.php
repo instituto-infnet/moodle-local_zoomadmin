@@ -93,6 +93,43 @@ class zoomadmin {
         return $response;
     }
 
+    public function get_index_commands() {
+        $indexcommands = array_filter($this->commands, function($cmd){return $cmd->showinindex === true;}) ;
+
+        $categories = array();
+
+        foreach ($indexcommands as $cmd) {
+            $catindex = 0;
+            $cat = null;
+
+            foreach ($categories as $catindex => $category) {
+                if ($category->name === $cmd->category) {
+                    $cat = $category;
+                    break;
+                }
+            }
+
+            if (!isset($cat)) {
+                $cat = $this->create_category($cmd);
+                $catindex = count($categories);
+            }
+
+            $cat->commands[] = $cmd;
+            $categories[$catindex] = $cat;
+        }
+
+        return $categories;
+    }
+
+    private function create_category($command) {
+        $category = new \stdClass();
+        $category->name = $command->category;
+        $category->stringname = $command->categorystringname;
+        $category->commands = array();
+
+        return $category;
+    }
+
     public function handle_form(\stdClass $formdata) {
         confirm_sesskey();
 
@@ -131,7 +168,7 @@ class zoomadmin {
         return $this->request($this->commands['user_get'], array('id' => $userid));
     }
 
-    public function get_meetings_list($params) {
+    public function get_meetings_list($params = array()) {
         $meetingsdata = new \stdClass();
         $commands = $this->commands;
 
@@ -171,7 +208,7 @@ class zoomadmin {
             }
         }
 
-        $meetingsdata->live = $this->set_meetings_data($meetingsdata->live->meetings);
+        $meetingsdata->live = $this->set_meetings_data($meetingsdata->live);
         $meetingsdata->meetings = $this->set_meetings_data($meetingsdata->meetings, true);
 
         $meetingsdata->live = $this->sort_meetings_by_start($meetingsdata->live);
@@ -201,13 +238,16 @@ class zoomadmin {
         return $meetings;
     }
 
-    public function get_recordings_list($params) {
+    public function get_recording_list($params) {
         $commands = $this->commands;
 
         $userdata = $this->request($commands['user_list'], array('page_size' => $this::MAX_PAGE_SIZE));
         $users = $userdata->users;
 
         $recordingsdata = new \stdClass();
+        $recordingsdata->user_get_url = './user_get.php';
+        $recordingsdata->add_recordings_to_page_url = './add_recordings_to_page.php';
+
         $recordingsdata->meetings = array();
 
         foreach ($users as $user) {
@@ -228,6 +268,8 @@ class zoomadmin {
             }
         }
 
+        $recordingsdata->meetings = $this->sort_meetings_by_start($recordingsdata->meetings, false);
+
         return $recordingsdata;
     }
 
@@ -238,7 +280,7 @@ class zoomadmin {
 
         $meetingrecordings = $this->get_recording($meetingid);
         $meetingnumber = $meetingrecordings->meeting_number;
-        $pagedata = array_pop($this->get_recordings_page_data($meetingnumber));
+        $pagedata = array_pop($this->get_recordings_page_data(array('meetingnumber' => $meetingnumber)));
 
         if (($meetingid !== null && $meetingnumber === null) || $pagedata === null) {
             return get_string('error_no_page_instance_found', 'local_zoomadmin', $this->format_meeting_number($meetingnumber));
@@ -267,6 +309,106 @@ class zoomadmin {
         return $return;
     }
 
+    public function get_recording_pages_list() {
+        $pagesdata = $this->get_recordings_page_data();
+        $meetingsdata = $this->get_meetings_list();
+        $meetings = array_merge($meetingsdata->meetings->past, $meetingsdata->meetings->upcoming);
+
+        $data = new \stdClass();
+        $data->user_get_url = './user_get.php';
+        $data->recording_edit_page_url = './recording_edit_page.php';
+
+        $data->pagesdata = array();
+        foreach ($pagesdata as $dbpagedata) {
+            $pagedata = new \stdClass();
+            $pagedata->record_page_id = $dbpagedata->recordpageid;
+            $meetingnumber = $dbpagedata->zoommeetingnumber;
+            $pagedata->meeting_number = $this->format_meeting_number($meetingnumber);
+
+            foreach ($meetings as $meeting) {
+                if ($meeting->id == $meetingnumber) {
+                    $pagedata->topic = $meeting->topic;
+                    $pagedata->host = $meeting->host;
+                    break;
+                }
+            }
+
+            $pagedata->pagecourselink = $this->format_course_path_links(
+                array($dbpagedata->cat2name, $dbpagedata->catname, $dbpagedata->coursename),
+                array($dbpagedata->cat2id, $dbpagedata->catid, $dbpagedata->courseid)
+            );
+
+            $pagedata->pagelink = $this->surround_with_anchor(
+                $dbpagedata->name,
+                (new \moodle_url('/mod/page/view.php', array('id' => $dbpagedata->cmid)))->out(),
+                true
+            );
+
+            $data->pagesdata[] = $pagedata;
+        }
+
+        return $data;
+    }
+
+    public function get_recordings_page_data_by_id($recordpageid) {
+        $pagedata = $this->get_recordings_page_data(array('recordpageid' => $recordpageid));
+        return (!empty($pagedata)) ? array_pop($pagedata) : $pagedata;
+    }
+
+    public function recording_edit_page($formdata) {
+        global $DB;
+
+        $action = (is_array($formdata)) ? $formdata['action'] : $formdata->action;
+        $tablename = 'local_zoomadmin_recordpages';
+
+        $success = false;
+        $message = '';
+
+        if ($action === 'edit') {
+            $formdata->id = $formdata->recordpageid;
+            if ($DB->update_record($tablename, $formdata) == 1) {
+                $success = true;
+            } else {
+                $success = false;
+            }
+        } else if ($action === 'add') {
+            if ($DB->insert_record($tablename, $formdata) > 0) {
+                $success = true;
+            } else {
+                $success = false;
+            }
+        } else if (
+            $action === 'delete'
+            && isset($formdata['delete_confirm'])
+            && $formdata['delete_confirm'] == true
+        ) {
+            $deleteresponse = $DB->delete_records(
+                $tablename,
+                array('id' => $formdata['recordpageid'])
+            );
+            if ($deleteresponse === true) {
+                $success = true;
+            } else {
+                $success = false;
+            }
+        }
+
+        $response = new \stdClass();
+        $response->success = $success;
+        $response->notification = $this->get_notification(
+            $success,
+            get_string(
+                'notification_recording_edit_page_' .
+                    $action .
+                    '_' .
+                    (($success === true) ? 'success' : 'error'),
+                'local_zoomadmin'
+            )
+        );
+
+        return $response;
+    }
+
     private function populate_commands() {
         $this->commands['user_list'] = new command('user', 'list');
         $this->commands['user_pending'] = new command('user', 'pending', false);
@@ -283,6 +425,7 @@ class zoomadmin {
         $this->commands['recording_list'] = new command('recording', 'list');
         $this->commands['recording_get'] = new command('recording', 'get', false);
         $this->commands['recording_delete'] = new command('recording', 'delete', false);
+        $this->commands['recording_manage_pages'] = new command('recording', 'manage_pages');
     }
 
     private function get_credentials() {
@@ -366,7 +509,8 @@ class zoomadmin {
             if (!in_array($meeting->type, array(3, 8))) {
                 $meetingswithoccurrences[] = $meeting;
             } else {
-                $meetingswithoccurrences = array_merge($meetingswithoccurrences, $this->get_meeting_occurrences($meeting));
+                $occurrences = $this->get_meeting_occurrences($meeting);
+                $meetingswithoccurrences = array_merge($meetingswithoccurrences, $occurrences);
             }
         }
 
@@ -382,6 +526,8 @@ class zoomadmin {
                         $meetingsbydate->upcoming[] = $meeting;
                     }
                 }
+            } else if ($separatepastupcoming === true) {
+                $meetingsbydate->past[] = $meeting;
             }
         }
 
@@ -396,14 +542,18 @@ class zoomadmin {
         $occurrences = array();
         $meetingdata = $this->request($this->commands['meeting_get'], array('id' => $meeting->id, 'host_id' => $meeting->host_id));
 
-        foreach ($meetingdata->occurrences as $occurrence) {
-            $occurrencewithdata = clone $meeting;
+        if (!isset($meetingdata->occurrences) || empty($meetingdata->occurrences)) {
+            $occurrences[] = $meeting;
+        } else {
+            foreach ($meetingdata->occurrences as $occurrence) {
+                $occurrencewithdata = clone $meeting;
 
-            foreach ($occurrence as $key => $value) {
-                $occurrencewithdata->$key = $value;
+                foreach ($occurrence as $key => $value) {
+                    $occurrencewithdata->$key = $value;
+                }
+
+                $occurrences[] = $occurrencewithdata;
             }
-
-            $occurrences[] = $occurrencewithdata;
         }
 
         return $occurrences;
@@ -419,29 +569,49 @@ class zoomadmin {
         return $recordingmeeting;
     }
 
-    private function get_recordings_page_data($meetingnumber) {
+    private function get_recordings_page_data($params = array()) {
         global $DB;
 
         $sqlstring = "
-            select cm.id cmid,
+            select rp.id recordpageid,
+                cm.id cmid,
+                rp.pagecmid,
                 p.*,
-                rp.id recordpageid,
                 rp.zoommeetingnumber,
-                rp.lastaddedtimestamp
+                rp.lastaddedtimestamp,
+                cm.course courseid,
+                c.fullname coursename,
+                cc.id catid,
+                cc.name catname,
+                cc2.id cat2id,
+                cc2.name cat2name
             from {local_zoomadmin_recordpages} rp
-                join {course_modules} cm on cm.id = rp.pagecmid
-                join {modules} m on m.id = cm.module
+                left join {course_modules} cm on cm.id = rp.pagecmid
+                left join {modules} m on m.id = cm.module
                     and m.name = 'page'
-                join {page} p on p.id = cm.instance
+                left join {page} p on p.id = cm.instance
+                left join {course} c on c.id = cm.course
+                left join {course_categories} cc on cc.id = c.category
+                left join {course_categories} cc2 on cc2.id = cc.parent
+            where 1 = 1
         ";
 
-        if ($meetingnumber !== null) {
+        $tokens = array();
+        if (isset($params['meetingnumber'])) {
             $sqlstring .= "
-            where rp.zoommeetingnumber = ?
+                and rp.zoommeetingnumber = ?
             ";
+            $tokens[] = $params['meetingnumber'];
         }
 
-        return $DB->get_records_sql($sqlstring, array($meetingnumber));
+        if (isset($params['recordpageid'])) {
+            $sqlstring .= "
+                and rp.id = ?
+            ";
+            $tokens[] = $params['recordpageid'];
+        }
+
+        return $DB->get_records_sql($sqlstring, $tokens);
     }
 
     private function get_new_recordings_page_content($pagedata, $meetingrecordings) {
@@ -596,5 +766,41 @@ class zoomadmin {
         });
 
         return $users;
+    }
+
+    private function format_course_path_links($contents, $ids) {
+        $links = array();
+        $lastindex = sizeof($contents) - 1;
+
+        foreach ($contents as $index => $content) {
+            if ($index === $lastindex) {
+                $href = new \moodle_url('/course/view.php', array('id' => $ids[$index]));
+            } else {
+                $href = new \moodle_url('/course/index.php', array('categoryid' => $ids[$index]));
+            }
+
+            $links[] = $this->surround_with_anchor($content, $href->out(), true);
+        }
+
+        return join(
+            ' / ',
+            $links
+        );
+    }
+
+    private function surround_with_anchor($content, $href, $newwindow) {
+        return '<a href="' . $href . '"' .
+            (($newwindow === true) ? 'target="_blank"' : '') .
+            '>' . $content .
+            '</a>'
+        ;
+    }
+
+    private function get_notification($success = true, $message = '') {
+        $notification = new \stdClass();
+        $notification->type = ($success === true) ? \core\output\notification::NOTIFY_SUCCESS : \core\output\notification::NOTIFY_ERROR;
+        $notification->message = $message;
+
+        return $notification;
     }
 }

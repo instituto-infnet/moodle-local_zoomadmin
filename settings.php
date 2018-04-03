@@ -65,4 +65,12 @@ if (has_capability('local/zoomadmin:managezoom', context_system::instance())) {
             new moodle_url('/local/zoomadmin/recording_list.php')
         )
     );
+    $ADMIN->add(
+        'zoom_category_recording',
+        new admin_externalpage(
+            'local_zoomadmin_recording_manage_pages',
+            get_string('command_recording_manage_pages', 'local_zoomadmin'),
+            new moodle_url('/local/zoomadmin/recording_manage_pages.php')
+        )
+    );
 }

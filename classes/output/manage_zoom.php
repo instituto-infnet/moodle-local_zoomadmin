@@ -66,7 +66,7 @@ class manage_zoom implements \renderable/*, \templatable*/ {
      */
     public function export_index_for_template() {
         $data = new \stdClass();
-        $data->categories = $this->get_index_commands();
+        $data->categories = $this->zoomadmin->get_index_commands();
 
         return $data;
     }
@@ -131,17 +131,24 @@ class manage_zoom implements \renderable/*, \templatable*/ {
      * @return \stdClass Dados a serem utilizados pelo template.
      */
     public function export_recording_list_for_template($renderer) {
-        $zoomadmin = $this->zoomadmin;
-
-        $data = $zoomadmin->get_recordings_list($this->params);
-        $data->meetings = $zoomadmin->sort_meetings_by_start($data->meetings, false);
-
-        $data->recording_list_url = './recording_list.php';
-        $data->recording_get_url = './recording_get.php';
-        $data->user_get_url = './user_get.php';
-        $data->add_recordings_to_page_url = './add_recordings_to_page.php';
-
+        $data = $this->zoomadmin->get_recording_list($this->params);
         $data->pages = $this->get_pagination((int)$data->page_number, $data->page_count);
+
+        return $data;
+    }
+
+    /**
+     * Obtém a relação de reuniões do Zoom e páginas associadas
+     * e envia ao template, para ser exibida na tela.
+     * @return \stdClass Dados a serem utilizados pelo template.
+     */
+    public function export_recording_manage_pages_for_template($renderer) {
+        $data = $this->zoomadmin->get_recording_pages_list();
+        $data->button_add = $renderer->single_button(
+            new \moodle_url('/local/zoomadmin/recording_edit_page.php', array('action' => 'add')),
+            get_string('add_recording_page', 'local_zoomadmin'),
+            'get'
+        );
 
         return $data;
     }
@@ -160,43 +167,6 @@ class manage_zoom implements \renderable/*, \templatable*/ {
         }
 
         return $output;
-    }
-
-    private function get_index_commands() {
-        $indexcommands = array_filter($this->zoomadmin->commands, function($cmd){return $cmd->showinindex === true;}) ;
-
-        $categories = array();
-
-        foreach ($indexcommands as $cmd) {
-            $catindex = 0;
-            $cat = null;
-
-            foreach ($categories as $catindex => $category) {
-                if ($category->name === $cmd->category) {
-                    $cat = $category;
-                    break;
-                }
-            }
-
-            if (!isset($cat)) {
-                $cat = $this->create_category($cmd);
-                $catindex = count($categories);
-            }
-
-            $cat->commands[] = $cmd;
-            $categories[$catindex] = $cat;
-        }
-
-        return $categories;
-    }
-
-    private function create_category($command) {
-        $category = new \stdClass();
-        $category->name = $command->category;
-        $category->stringname = $command->categorystringname;
-        $category->commands = array();
-
-        return $category;
     }
 
     private function get_pagination($currentpage, $pagecount) {

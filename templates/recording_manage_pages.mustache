@@ -1,0 +1,30 @@
+{{{button_add}}}
+
+<table class="table">
+    <thead>
+        <tr>
+            <th scope="col">{{#str}}id,local_zoomadmin{{/str}}</th>
+            <th scope="col">{{#str}}meeting_topic,local_zoomadmin{{/str}}</th>
+            <th scope="col">{{#str}}host,local_zoomadmin{{/str}}</th>
+            <th scope="col">{{#str}}course{{/str}}</th>
+            <th scope="col">{{#str}}page{{/str}}</th>
+            <th scope="col">&nbsp;</th>
+        </tr>
+    </thead>
+    <tbody>
+    {{#pagesdata}}
+        <tr>
+            <td class="nowrap">{{meeting_number}}</td>
+            <td>{{topic}}</td>
+            <td>{{#host}}<a href="{{{user_get_url}}}?id={{id}}">{{first_name}} {{last_name}}</a>{{/host}}</td>
+            <td>{{{pagecourselink}}}</td>
+            <td>{{{pagelink}}}</td>
+            <td class="nowrap">
+                <a href="{{{recording_edit_page_url}}}?recordpageid={{record_page_id}}&action=edit">{{#str}}edit{{/str}}</a>
+                |
+                <a href="{{{recording_edit_page_url}}}?recordpageid={{record_page_id}}&action=delete">{{#str}}delete{{/str}}</a>
+            </td>
+        </tr>
+    {{/pagesdata}}
+    </tbody>
+</table>
