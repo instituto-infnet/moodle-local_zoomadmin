@@ -26,6 +26,6 @@
 defined('MOODLE_INTERNAL') || die();
 
 
-$plugin->version   = 2018031402; // The current plugin version (Date: YYYYMMDDXX).
+$plugin->version   = 2018040500; // The current plugin version (Date: YYYYMMDDXX).
 $plugin->requires  = 2016051900; // Requires this Moodle version.
 $plugin->component = 'local_zoomadmin'; // Full name of the plugin (used for diagnostics).
