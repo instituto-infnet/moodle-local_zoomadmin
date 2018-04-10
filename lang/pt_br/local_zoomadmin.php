@@ -80,6 +80,7 @@ $string['error_no_recordings_found'] = 'Não foi encontrado nenhum vídeo acima 
 $string['error_recording_already_added'] = 'Gravação já havia sido adicionada à página.';
 $string['error_updating_recordpages_table'] = 'Erro ao atualizar tabela `local_zoomadmin_recordpages`. ID do registro = {$a}';
 $string['file_type'] = 'Tipo';
+$string['file_type_'] = 'N/D';
 $string['file_type_CHAT'] = 'Chat';
 $string['file_type_M4A'] = 'Áudio';
 $string['file_type_MP4'] = 'Vídeo';

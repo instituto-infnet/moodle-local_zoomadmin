@@ -238,7 +238,7 @@ class zoomadmin {
         return $meetings;
     }
 
-    public function get_recording_list($params) {
+    public function get_recording_list($params = array()) {
         $commands = $this->commands;
 
         $userdata = $this->request($commands['user_list'], array('page_size' => $this::MAX_PAGE_SIZE));
@@ -262,7 +262,10 @@ class zoomadmin {
                 }
 
                 $recordingsdata->total_records += (int)$userrecordings->total_records;
-                $recordingsdata->page_count = max((int)$recordingsdata->page_count, (int)$userrecordings->page_count);
+
+                $recordingpagecount = (isset($recordingsdata->page_count)) ? (int)$recordingsdata->page_count : 1;
+                $userpagecount = (isset($userrecordings->page_count)) ? (int)$userrecordings->page_count : 1;
+                $recordingsdata->page_count = max($recordingpagecount, $userpagecount);
 
                 $recordingsdata->meetings = $this->set_recordings_data(array_merge($recordingsdata->meetings, $userrecordings->meetings));
             }
@@ -727,11 +730,11 @@ class zoomadmin {
     }
 
     private function add_all_recordings_to_page() {
-        $recordingsdata = $this->get_recordings_list();
+        $recordingsdata = $this->get_recording_list();
         $recordingsdata->meetings = $this->sort_meetings_by_start($recordingsdata->meetings);
         $pagesdata = $this->get_recordings_page_data();
 
-        $meetingids = array();
+        $responses = array();
         foreach ($pagesdata as $pagedata) {
             foreach ($recordingsdata->meetings as $meetingdata) {
                 if (

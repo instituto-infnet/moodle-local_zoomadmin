@@ -153,7 +153,7 @@ class manage_zoom implements \renderable/*, \templatable*/ {
         return $data;
     }
 
-    public function add_recordings_to_page($meetingid) {
+    public function add_recordings_to_page($meetingid = null) {
         $response = $this->zoomadmin->add_recordings_to_page($meetingid);
 
         if (is_array($response)) {

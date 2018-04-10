@@ -80,6 +80,7 @@ $string['error_no_recordings_found'] = 'No videos over the minimum file size fou
 $string['error_recording_already_added'] = 'Recording was already added to page.';
 $string['error_updating_recordpages_table'] = 'Error updating `local_zoomadmin_recordpages` table. Row ID = {$a}';
 $string['file_type'] = 'File type';
+$string['file_type_'] = 'N/D';
 $string['file_type_CHAT'] = 'Chat';
 $string['file_type_M4A'] = 'Audio';
 $string['file_type_MP4'] = 'Video';
