@@ -94,6 +94,8 @@ class recording_edit_page_form extends moodleform {
 
         if ($this->_customdata['action'] === 'create') {
             $this->add_action_buttons(true, get_string('add_recording_page', 'local_zoomadmin'));
+        } else if ($this->_customdata['action'] === 'send_recording_to_google_drive') {
+            $this->add_action_buttons(true, get_string('send_recording_to_google_drive', 'local_zoomadmin'));
         } else {
             $this->add_action_buttons();
         }

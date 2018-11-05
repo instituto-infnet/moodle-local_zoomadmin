@@ -169,6 +169,22 @@ class manage_zoom implements \renderable/*, \templatable*/ {
         return $output;
     }
 
+    public function send_recordings_to_google_drive($meetingid = null) {
+        $response = $this->zoomadmin->send_recordings_to_google_drive($meetingid);
+
+        if (is_array($response)) {
+            $output = '<ul>';
+            foreach ($response as $message) {
+                $output .= '<li>' . $message . '</li>';
+            }
+            $output .= '</ul>';
+        } else {
+            $output = $response;
+        }
+
+        return $output;
+    }
+
     private function get_pagination($currentpage, $pagecount) {
         $pages = array();
 
@@ -183,5 +199,36 @@ class manage_zoom implements \renderable/*, \templatable*/ {
         }
 
         return $pages;
+    }
+
+    /**
+     * Exibe a lista das gravações mais antigas, para serem enviadas ao
+     * Google Drive.
+     * @return \stdClass Conteúdo HTML a ser exibido na página.
+     */
+    public function export_recording_send_to_google_drive_for_template($renderer) {
+        $data = $this->zoomadmin->send_recordings_to_google_drive($this->params);
+
+        return $data;
+    }
+
+    /**
+     * Cria token de acesso à API do Google.
+     * @return \stdClass Conteúdo HTML a ser exibido na página.
+     */
+    public function create_google_api_token($verificationcode) {
+        $data = $this->zoomadmin->create_google_api_token($this->params);
+
+        return $data;
+    }
+
+    /**
+     * Cria token de acesso à API do Google.
+     * @return \stdClass Conteúdo HTML a ser exibido na página.
+     */
+    public function oauth2callback($verificationcode) {
+        $data = $this->zoomadmin->oauth2callback($this->params);
+
+        return $data;
     }
 }

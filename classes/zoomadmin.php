@@ -28,7 +28,8 @@ namespace local_zoomadmin;
 defined('MOODLE_INTERNAL') || die();
 
 require_once(__DIR__ . '/../../../config.php');
-require_once(__DIR__ . '/../credentials.php');
+require_once(__DIR__ . '/../zoom-credentials.php');
+require_once(__DIR__ . '/google_api_controller.php');
 
 /**
  * Classe de interação com a REST API do Zoom.
@@ -247,11 +248,13 @@ class zoomadmin {
         $recordingsdata = new \stdClass();
         $recordingsdata->user_get_url = './user_get.php';
         $recordingsdata->add_recordings_to_page_url = './add_recordings_to_page.php';
+        $recordingsdata->send_recordings_to_google_drive_url = './send_recordings_to_google_drive.php';
 
         $recordingsdata->meetings = array();
 
         foreach ($users as $user) {
             $params['host_id'] = $user->id;
+            $params['page_size'] = $this::MAX_PAGE_SIZE;
 
             $userrecordings = $this->request($commands['recording_list'], $params);
             $recordingsdata->total_records = (int)$userrecordings->total_records;
@@ -268,6 +271,10 @@ class zoomadmin {
                 $recordingsdata->page_count = max($recordingpagecount, $userpagecount);
 
                 $recordingsdata->meetings = $this->set_recordings_data(array_merge($recordingsdata->meetings, $userrecordings->meetings));
+
+                if (isset($params['meeting_number'])) {
+                    break;
+                }
             }
         }
 
@@ -308,8 +315,6 @@ class zoomadmin {
         } else {
             return get_string('error_add_recordings_to_page', 'local_zoomadmin', $recordingpageurl->out());
         }
-
-        return $return;
     }
 
     public function get_recording_pages_list() {
@@ -412,6 +417,71 @@ class zoomadmin {
         return $response;
     }
 
+    public function send_recordings_to_google_drive($meetingid, $pagedata) {
+        $meetingrecordings = $this->get_recording($meetingid);
+        $meetingnumber = $meetingrecordings->meeting_number;
+
+        if (!isset($pagedata)) {
+            $pagesdata = $this->get_recordings_page_data(array('meetingnumber' => $meetingnumber));
+            $pagedata = array_pop($pagesdata);
+        }
+
+        if (($meetingid !== null && $meetingnumber === null) || $pagedata === null) {
+            return get_string('error_no_page_instance_found', 'local_zoomadmin', $this->format_meeting_number($meetingnumber));
+        }
+
+        $gdrivefiles = $this->create_google_drive_files($meetingrecordings, $pagedata);
+
+        $response = '<ul>';
+
+        foreach ($gdrivefiles as $file) {
+            $deleted = $this->delete_recording($file->zoomfile->meeting_id);
+
+            $response .= '<li>' .
+                get_string('google_drive_upload_success', 'local_zoomadmin') .
+                ': <a href="' .
+                $file->webViewLink .
+                '" target="_blank">' .
+                $file->name .
+                '</a>.' .
+                $file->link_replaced_message .
+                (isset($deleted->deleted_at) ? 'Arquivo excluído do Zoom.' : 'Arquivo não excluído do Zoom.') .
+                '</li>'
+            ;
+        }
+
+        $response .= '</ul>';
+
+        return $response;
+    }
+
+    public function create_google_api_token($params) {
+        $googlecontroller = new \google_api_controller();
+        return $googlecontroller->create_google_api_token($params);
+    }
+
+    public function oauth2callback($params) {
+        $googlecontroller = new \google_api_controller();
+        return $googlecontroller->oauth2callback($params);
+    }
+
+    public function send_course_recordings_to_google_drive($formdata) {
+        $messages = array();
+        $response = new \stdClass();
+
+        $googlecontroller = new \google_api_controller();
+
+        $recordingsdata = $this->get_recording_list(array('meeting_number' => $formdata->zoommeetingnumber));
+        $recordingsdata->meetings = $this->sort_meetings_by_start($recordingsdata->meetings);
+        $pagedata = $this->get_mod_page_data($formdata->pagecmid);
+
+        foreach ($recordingsdata->meetings as $meeting) {
+            $messages[] = $this->send_recordings_to_google_drive($meeting->uuid, $pagedata, $googlecontroller);
+        }
+
+        return implode($messages);
+    }
+
     private function populate_commands() {
         $this->commands['user_list'] = new command('user', 'list');
         $this->commands['user_pending'] = new command('user', 'pending', false);
@@ -454,6 +524,7 @@ class zoomadmin {
             foreach($meeting->recording_files as $fileindex => $file) {
                 $recordingstarttime = (new \DateTime($file->recording_start))->setTimezone($timezone);
                 $meetings[$meetingindex]->recording_files[$fileindex]->recording_start_formatted = $recordingstarttime->format('d/m/Y H:i:s');
+                $meetings[$meetingindex]->recording_files[$fileindex]->recording_start_formatted_for_download = $recordingstarttime->format('Y-m-d H:i:s');
 
                 $recordingendtime = (new \DateTime($file->recording_end))->setTimezone($timezone);
                 $meetings[$meetingindex]->recording_files[$fileindex]->recording_end_formatted = $recordingendtime->format('d/m/Y H:i:s');
@@ -474,7 +545,14 @@ class zoomadmin {
     }
 
     private function get_meeting_timezone($meeting) {
-        return new \DateTimeZone((isset($meeting->timezone)) ? $meeting->timezone : (isset($meeting->host->timezone)) ? $meeting->host->timezone : 'America/Sao_Paulo');
+        $timezone = 'America/Sao_Paulo';
+        if (isset($meeting->timezone) && $meeting->timezone !== '') {
+            $timezone = $meeting->timezone;
+        } else if (isset($meeting->host->timezone) && $meeting->host->timezone !== '') {
+            $timezone = $meeting->host->timezone;
+        }
+
+        return new \DateTimeZone($timezone);
     }
 
     private function format_meeting_number($meetingnumber) {
@@ -567,9 +645,15 @@ class zoomadmin {
 
         $recordingmeeting = $this->request($commands['recording_get'], array('meeting_id' => $meetingid));
         $recordingmeeting->host = $this->request($commands['user_get'], array('id' => $recordingmeeting->host_id));
-        $recordingmeeting = array_pop($this->set_recordings_data(array($recordingmeeting)));
+
+        $recordingsdata = $this->set_recordings_data(array($recordingmeeting));
+        $recordingmeeting = array_pop($recordingsdata);
 
         return $recordingmeeting;
+    }
+
+    private function delete_recording($meetingid) {
+        return $response = $this->request($this->commands['recording_delete'], array('meeting_id' => $meetingid));
     }
 
     private function get_recordings_page_data($params = array()) {
@@ -587,7 +671,11 @@ class zoomadmin {
                 cc.id catid,
                 cc.name catname,
                 cc2.id cat2id,
-                cc2.name cat2name
+                cc2.name cat2name,
+                cc3.id cat3id,
+                cc3.name cat3name,
+                cc4.id cat4id,
+                cc4.name cat4name
             from {local_zoomadmin_recordpages} rp
                 left join {course_modules} cm on cm.id = rp.pagecmid
                 left join {modules} m on m.id = cm.module
@@ -596,6 +684,8 @@ class zoomadmin {
                 left join {course} c on c.id = cm.course
                 left join {course_categories} cc on cc.id = c.category
                 left join {course_categories} cc2 on cc2.id = cc.parent
+                left join {course_categories} cc3 on cc3.id = cc2.parent
+                left join {course_categories} cc4 on cc4.id = cc3.parent
             where 1 = 1
         ";
 
@@ -615,6 +705,37 @@ class zoomadmin {
         }
 
         return $DB->get_records_sql($sqlstring, $tokens);
+    }
+
+    private function get_mod_page_data($cmid) {
+        global $DB;
+
+        $sqlstring = "
+            select cm.id cmid,
+                p.*,
+                cm.course courseid,
+                c.fullname coursename,
+                cc.id catid,
+                cc.name catname,
+                cc2.id cat2id,
+                cc2.name cat2name,
+                cc3.id cat3id,
+                cc3.name cat3name,
+                cc4.id cat4id,
+                cc4.name cat4name
+            from {course_modules} cm
+                join {modules} m on m.id = cm.module
+                    and m.name = 'page'
+                join {page} p on p.id = cm.instance
+                join {course} c on c.id = cm.course
+                left join {course_categories} cc on cc.id = c.category
+                left join {course_categories} cc2 on cc2.id = cc.parent
+                left join {course_categories} cc3 on cc3.id = cc2.parent
+                left join {course_categories} cc4 on cc4.id = cc3.parent
+            where cm.id = ?
+        ";
+
+        return $DB->get_record_sql($sqlstring, array($cmid));
     }
 
     private function get_new_recordings_page_content($pagedata, $meetingrecordings) {
@@ -805,5 +926,114 @@ class zoomadmin {
         $notification->message = $message;
 
         return $notification;
+    }
+
+    private function create_google_drive_files($meetingrecordings, $pagedata, $googlecontroller = null) {
+        $files = $meetingrecordings->recording_files;
+        $filecount = count($files);
+
+        if ($filecount === 0) {
+            return 'error_no_recordings_found';
+        }
+
+        $drivefiles = array();
+
+        if (!isset($googlecontroller)) {
+            $googlecontroller = new \google_api_controller();
+        }
+
+        $folder = $this->get_google_drive_folder($googlecontroller, $pagedata);
+
+        $folderfiles = $googlecontroller->get_google_drive_files_from_folder($folder);
+        $filenames = array_column($folderfiles, 'name');
+
+        foreach ($files as $file) {
+            $filedata = $this->get_file_data_for_google_drive($file, $pagedata);
+
+            $filekey = array_search($filedata['name'], $filenames);
+
+            if ($filekey === false) {
+                $filedata['parents'] = array($folder->id);
+                $drivefile = $googlecontroller->create_drive_file($filedata);
+            } else {
+                $drivefile = $folderfiles[$filekey];
+            }
+
+            $drivefile->link_replaced_message = $this->replace_recordings_page_links($pagedata, $file, $drivefile->webViewLink);
+            $drivefile->zoomfile = $file;
+            $drivefiles[] = $drivefile;
+        }
+
+        return $drivefiles;
+    }
+
+    private function get_google_drive_folder($googlecontroller, $pagedata) {
+        $foldernamestree = array(
+            $pagedata->cat4name,
+            $pagedata->cat3name,
+            $pagedata->cat2name,
+            $pagedata->catname,
+            $pagedata->coursename
+        );
+
+        $folder = $googlecontroller->get_google_drive_folder($foldernamestree);
+
+        return $folder;
+    }
+
+    private function get_file_data_for_google_drive($file, $pagedata) {
+        $filetypes = array(
+            'MP4' => array(
+                'mime_type' => 'video/mp4',
+                'extension' => 'mp4'
+            ),
+            'CHAT' => array(
+                'mime_type' => 'text/plain',
+                'extension' => 'txt'
+            ),
+            'M4A' => array(
+                'mime_type' => 'audio/mp4',
+                'extension' => 'm4a'
+            )
+        );
+
+        $type = $file->file_type;
+        $typevalues = $filetypes[$type];
+
+        $filedata = array(
+            'name' => $file->recording_start_formatted_for_download .
+                ' - ' .
+                $pagedata->coursename .
+                ' (' .
+                get_string('file_type_' . $type, 'local_zoomadmin') .
+                ').' .
+                $typevalues['extension'],
+            'data' => file_get_contents($file->download_url),
+            'mime_type' => $typevalues['mime_type']
+        );
+
+        return $filedata;
+    }
+
+    private function replace_recordings_page_links($pagedata, $zoomfile, $driveurl) {
+        $newcontent = str_replace(
+            $zoomfile->download_url,
+            $driveurl,
+            str_replace(
+                $zoomfile->play_url,
+                $driveurl,
+                $pagedata->content
+            )
+        );
+
+        $pageupdated = $this->update_page_content($pagedata, $newcontent);
+
+        if ($pageupdated === true) {
+            // $this->update_recordpage_timestamp($pagedata->recordpageid, $meetingrecordings->start_time_unix);
+            $recordingpageurl = new \moodle_url('/mod/page/view.php', array('id' => $pagedata->cmid));
+            return get_string('recordings_url_replaced_in_page', 'local_zoomadmin', $recordingpageurl->out());
+        } else {
+            return get_string('error_recordings_replace_url_in_page', 'local_zoomadmin', $recordingpageurl->out());
+        }
     }
 }

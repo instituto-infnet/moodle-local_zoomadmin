@@ -73,4 +73,12 @@ if (has_capability('local/zoomadmin:managezoom', context_system::instance())) {
             new moodle_url('/local/zoomadmin/recording_manage_pages.php')
         )
     );
+    $ADMIN->add(
+        'zoom_category_recording',
+        new admin_externalpage(
+            'local_zoomadmin_send_course_recordings_to_google_drive',
+            get_string('send_course_recordings_to_google_drive', 'local_zoomadmin'),
+            new moodle_url('/local/zoomadmin/send_course_recordings_to_google_drive.php')
+        )
+    );
 }

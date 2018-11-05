@@ -62,4 +62,5 @@ sftp-config.json
 *.rexpfd
 
 # Arquivo com credenciais de produção
-credentials.php
+google-credentials.json
+zoom-credentials.php
