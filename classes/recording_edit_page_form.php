@@ -56,10 +56,12 @@ class recording_edit_page_form extends moodleform {
     public function definition() {
         $this->zoomadmin = new \local_zoomadmin\zoomadmin();
         $mform = $this->_form;
+        $data = $this->_customdata;
+        $action = $data['action'];
 
-        $mform->addElement('hidden', 'action', $this->_customdata['action']);
+        $mform->addElement('hidden', 'action', $action);
         $this->_form->setType('action', PARAM_TEXT);
-        if ($this->_customdata['action'] === 'edit') {
+        if ($action === 'edit') {
             $mform->addElement('hidden', 'recordpageid');
             $this->_form->setType('recordpageid', PARAM_INT);
         }
@@ -74,7 +76,14 @@ class recording_edit_page_form extends moodleform {
             'text',
             'zoommeetingnumber',
             null,
-            'maxlength="10"'
+            'maxlength="12"'
+        );
+        $mform->addRule(
+            'zoommeetingnumber',
+            null,
+            'required',
+            null,
+            'client'
         );
         $this->_form->setType('zoommeetingnumber', PARAM_INT);
 
@@ -90,12 +99,25 @@ class recording_edit_page_form extends moodleform {
             null,
             'maxlength="11"'
         );
+        $mform->addRule(
+            'pagecmid',
+            null,
+            'required',
+            null,
+            'client'
+        );
         $this->_form->setType('pagecmid', PARAM_INT);
 
-        if ($this->_customdata['action'] === 'create') {
-            $this->add_action_buttons(true, get_string('add_recording_page', 'local_zoomadmin'));
-        } else if ($this->_customdata['action'] === 'send_recording_to_google_drive') {
+        if ($action === 'send_recording_to_google_drive') {
+            $mform->addElement(
+                'date_time_selector',
+                'execute_time',
+                get_string('execute_time', 'local_zoomadmin')
+            );
+
             $this->add_action_buttons(true, get_string('send_recording_to_google_drive', 'local_zoomadmin'));
+        } else if ($action === 'create') {
+            $this->add_action_buttons(true, get_string('add_recording_page', 'local_zoomadmin'));
         } else {
             $this->add_action_buttons();
         }

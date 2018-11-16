@@ -352,6 +352,23 @@ class zoomadmin {
                 true
             );
 
+            $pagedata->recordinglocation = $dbpagedata->recordinglocation;
+
+            if (strpos($pagedata->recordinglocation, 'Z') !== false) {
+                $pagedata->sendtogdrivelink = $this->surround_with_anchor(
+                    get_string('send_recording_to_google_drive', 'local_zoomadmin'),
+                    (
+                        new \moodle_url('/local/zoomadmin/send_course_recordings_to_google_drive.php',
+                            array(
+                                'zoommeetingnumber' => $dbpagedata->zoommeetingnumber,
+                                'pagecmid' => $dbpagedata->cmid
+                            )
+                        )
+                    )->out(),
+                    true
+                );
+            }
+
             $data->pagesdata[] = $pagedata;
         }
 
@@ -417,7 +434,7 @@ class zoomadmin {
         return $response;
     }
 
-    public function send_recordings_to_google_drive($meetingid, $pagedata) {
+    public function send_recordings_to_google_drive($meetingid, $pagedata = null) {
         $meetingrecordings = $this->get_recording($meetingid);
         $meetingnumber = $meetingrecordings->meeting_number;
 
@@ -435,10 +452,16 @@ class zoomadmin {
         $response = '<ul>';
 
         foreach ($gdrivefiles as $file) {
-            $deleted = $this->delete_recording($file->zoomfile->meeting_id);
+            if (isset($file->webViewLink)) {
+                $gdrivefilemsg = get_string('google_drive_upload_success', 'local_zoomadmin');
+                $deleted = $this->delete_recording($file->zoomfile->meeting_id);
+            } else {
+                $gdrivefilemsg = get_string('google_drive_upload_error', 'local_zoomadmin');
+            }
+
 
             $response .= '<li>' .
-                get_string('google_drive_upload_success', 'local_zoomadmin') .
+                $gdrivefilemsg .
                 ': <a href="' .
                 $file->webViewLink .
                 '" target="_blank">' .
@@ -466,17 +489,16 @@ class zoomadmin {
     }
 
     public function send_course_recordings_to_google_drive($formdata) {
+        $formdata = (array) $formdata;
         $messages = array();
         $response = new \stdClass();
 
-        $googlecontroller = new \google_api_controller();
+        $recordingsdata = $this->get_recording_list(array('meeting_number' => $formdata['zoommeetingnumber']));
+        $meetings = $this->sort_meetings_by_start($recordingsdata->meetings);
+        $pagedata = $this->get_mod_page_data($formdata['pagecmid']);
 
-        $recordingsdata = $this->get_recording_list(array('meeting_number' => $formdata->zoommeetingnumber));
-        $recordingsdata->meetings = $this->sort_meetings_by_start($recordingsdata->meetings);
-        $pagedata = $this->get_mod_page_data($formdata->pagecmid);
-
-        foreach ($recordingsdata->meetings as $meeting) {
-            $messages[] = $this->send_recordings_to_google_drive($meeting->uuid, $pagedata, $googlecontroller);
+        foreach ($meetings as $meeting) {
+            $messages[] = $this->send_recordings_to_google_drive($meeting->uuid, $pagedata);
         }
 
         return implode($messages);
@@ -664,6 +686,11 @@ class zoomadmin {
                 cm.id cmid,
                 rp.pagecmid,
                 p.*,
+                CONCAT_WS(
+                    '/',
+                    case when p.content like '%api.zoom.us%' then 'Z' end,
+                    case when p.content like '%drive.google.com%' then 'G' end
+                ) recordinglocation,
                 rp.zoommeetingnumber,
                 rp.lastaddedtimestamp,
                 cm.course courseid,
@@ -1001,6 +1028,7 @@ class zoomadmin {
         $typevalues = $filetypes[$type];
 
         $filedata = array(
+            'id' => $file->id,
             'name' => $file->recording_start_formatted_for_download .
                 ' - ' .
                 $pagedata->coursename .
@@ -1008,7 +1036,7 @@ class zoomadmin {
                 get_string('file_type_' . $type, 'local_zoomadmin') .
                 ').' .
                 $typevalues['extension'],
-            'data' => file_get_contents($file->download_url),
+            'file_url' => $file->download_url,
             'mime_type' => $typevalues['mime_type']
         );
 
@@ -1029,7 +1057,6 @@ class zoomadmin {
         $pageupdated = $this->update_page_content($pagedata, $newcontent);
 
         if ($pageupdated === true) {
-            // $this->update_recordpage_timestamp($pagedata->recordpageid, $meetingrecordings->start_time_unix);
             $recordingpageurl = new \moodle_url('/mod/page/view.php', array('id' => $pagedata->cmid));
             return get_string('recordings_url_replaced_in_page', 'local_zoomadmin', $recordingpageurl->out());
         } else {

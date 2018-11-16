@@ -57,23 +57,92 @@ class google_api_controller {
     }
 
     public function create_drive_file($filedata) {
-        $file = new Google_Service_Drive_DriveFile(array(
-            'name' => $filedata['name'],
-            'parents' => $filedata['parents'],
-            'mimeType' => $filedata['mime_type']
-        ));
-
         try {
-            $createdfile = $this->service->files->create($file, array(
-                'data' => (isset($filedata['data']) ? $filedata['data'] : null),
+            $simpleupload = true;
+            $maxsizesimpleupload = 500 * 1024 * 1024;
+            $uploaddata = null;
+
+            $file = new Google_Service_Drive_DriveFile(array(
+                'name' => $filedata['name'],
+                'parents' => $filedata['parents'],
+                'mimeType' => $filedata['mime_type']
+            ));
+
+            if (isset($filedata['file_url'])) {
+                $fileurl = $filedata['file_url'];
+
+                foreach (get_headers($fileurl, true)['Content-Length'] as $filesize) {
+                    if ($filesize > 0) {
+                        break;
+                    }
+                }
+
+                $simpleupload = $filesize <= $maxsizesimpleupload;
+
+                if ($simpleupload === true) {
+                    $uploaddata = file_get_contents($fileurl);
+                } else {
+                    $tempfilepath = $this->create_local_temp_file($filedata);
+
+                    $client = $this->client;
+                    // Call the API with the media upload, defer so it doesn't
+                    // immediately return.
+                    $client->setDefer(true);
+                }
+            }
+
+            $request = $this->service->files->create($file, array(
+                'data' => $uploaddata,
                 'uploadType' => 'multipart',
                 'fields' => 'id, name, mimeType, parents, webViewLink'
             ));
+
+            if ($simpleupload === true) {
+                $result = $request;
+            } else {
+                $chunksizebytes = 100 * 1024 * 1024;
+
+                $media = new Google_Http_MediaFileUpload(
+                    $client,
+                    $request,
+                    $filedata['mime_type'],
+                    null,
+                    true,
+                    $chunksizebytes
+                );
+
+                $media->setFileSize($filesize);
+
+                // Upload the various chunks. $status will be false
+                // until the process is complete.
+                $status = false;
+                $handle = fopen($tempfilepath, 'rb');
+
+                while (!$status && !feof($handle)) {
+                    $chunk = fread($handle, $chunksizebytes);
+                    $status = $media->nextChunk($chunk);
+                }
+
+                // The final value of $status will be the data from the API
+                // for the object that has been uploaded.
+                $result = false;
+                if($status != false) {
+                    $result = $status;
+                }
+
+                fclose($handle);
+
+                unlink($tempfilepath);
+
+                // Reset to the client to execute requests
+                // immediately in the future.
+                $client->setDefer(false);
+            }
         } catch (Exception $err) {
             print_object($err->getMessage());
         }
 
-        return $createdfile;
+        return $result;
     }
 
     public function oauth2callback($param) {
@@ -204,5 +273,25 @@ class google_api_controller {
         } catch (Exception $err) {
             print_object($err);
         }
+    }
+
+    private function create_local_temp_file($filedata) {
+        global $CFG;
+
+        $filepath = $CFG->dataroot . '/temp/local-zoomadmin';
+
+        $parts = explode('/', $filepath);
+        $filepath = '';
+        foreach($parts as $part) {
+            if (!is_dir($filepath .= '/' . $part)) {
+                mkdir($filepath);
+            }
+        }
+
+        $filepath .= '/' . $filedata['id'];
+
+        file_put_contents($filepath, file_get_contents($filedata['file_url']));
+
+        return $filepath;
     }
 }

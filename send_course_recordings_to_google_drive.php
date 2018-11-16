@@ -27,16 +27,11 @@ require_once(__DIR__ . '/../../config.php');
 require_once($CFG->libdir . '/adminlib.php');
 require_once(__DIR__ . '/classes/recording_edit_page_form.php');
 
-/*
 $params = array(
-    'action' => required_param('action', PARAM_TEXT),
-    'delete_confirm' => optional_param('delete_confirm', false, PARAM_BOOL)
+    'action' => 'send_recording_to_google_drive',
+    'zoommeetingnumber' => optional_param('zoommeetingnumber', null, PARAM_INT),
+    'pagecmid' => optional_param('pagecmid', null, PARAM_INT)
 );
-
-if ($params['action'] !== 'add') {
-    $params['recordpageid'] = required_param('recordpageid', PARAM_INT);
-}
-//*/
 
 $url = new moodle_url('/local/zoomadmin/send_course_recordings_to_google_drive.php'/*, $params*/);
 
@@ -53,9 +48,7 @@ admin_externalpage_setup('local_zoomadmin_send_course_recordings_to_google_drive
 require_login();
 require_capability('local/zoomadmin:managezoom', $context);
 
-$zoomadmin = new \local_zoomadmin\zoomadmin();
-
-$mform = new recording_edit_page_form(null, array('action' => 'send_recording_to_google_drive'));
+$mform = new recording_edit_page_form(null, $params);
 
 if ($mform->is_cancelled()) {
     redirect(new moodle_url('/local/zoomadmin/index.php'));
@@ -63,10 +56,27 @@ if ($mform->is_cancelled()) {
 
 echo $OUTPUT->header() . $OUTPUT->heading($title);
 
-if (($fromform = $mform->get_data())) {
-    $mform->set_data($fromform);
-    echo $zoomadmin->send_course_recordings_to_google_drive($fromform);
+if ($formdata = $mform->get_data()) {
+    global $DB;
+
+    $task = new local_zoomadmin\task\send_course_recordings_to_google_drive_task();
+    $task->set_custom_data($formdata);
+    $taskid = \core\task\manager::queue_adhoc_task($task);
+
+    $exectime = $formdata->execute_time;
+
+    $DB->execute('
+        update {task_adhoc}
+        set nextruntime = ' . $exectime . '
+        where id = ' . $taskid . '
+    ', $record);
+
+    echo get_string('send_recordings_task_created', 'local_zoomadmin', date('Y-m-d h:i:s',$exectime));
+} else {
+    $formdata = $params;
 }
+
+$mform->set_data($formdata);
 
 $mform->display();
 
