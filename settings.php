@@ -36,6 +36,15 @@ if (has_capability('local/zoomadmin:managezoom', context_system::instance())) {
         )
     );
 
+    $ADMIN->add(
+        'zoom',
+        new admin_externalpage(
+            'local_zoomadmin_log',
+            get_string('log', 'local_zoomadmin'),
+            new moodle_url('/local/zoomadmin/log.php')
+        )
+    );
+    
     $ADMIN->add('zoom', new admin_category('zoom_category_user', get_string('category_user', 'local_zoomadmin')));
     $ADMIN->add(
         'zoom_category_user',

@@ -82,8 +82,14 @@ class user_get_form extends moodleform {
     {
         $mform = $this->_form;
 
-        $mform->addElement('hidden', 'zoom_command', $this->_customdata['zoom_command']);
-        if ($this->_customdata['zoom_command'] !== 'user_create') {
+        $mform->addElement('hidden', 'endpoint', 'users/' . $this->_customdata['id']);
+        $mform->addElement('hidden', 'method', $this->_customdata['method']);
+
+
+        $iscreate = $this->_customdata['method'] === 'post';
+        if ($iscreate === true) {
+            $mform->addElement('hidden', 'action', 'create');
+        } else {
             $mform->addElement('hidden', 'id');
             $mform->addElement('hidden', 'email_hidden');
         }
@@ -94,9 +100,9 @@ class user_get_form extends moodleform {
         $this->add_recording();
         $this->add_security();
 
-        if ($this->_customdata['zoom_command'] === 'user_create') {
+        if ($iscreate === true) {
             $this->add_action_buttons(true, get_string('add_user', 'local_zoomadmin'));
-        } else if ($this->_customdata['zoom_command'] === 'user_update') {
+        } else if ($this->_customdata['method'] === 'patch') {
             $this->add_action_buttons();
         }
     }
@@ -115,7 +121,6 @@ class user_get_form extends moodleform {
         $mform->addElement('text', 'dept', get_string('department', 'local_zoomadmin'));
         $mform->addElement('text', 'timezone', get_string('timezone'));
 
-        $iscreate = $this->_customdata['zoom_command'] === 'user_create';
         if ($iscreate === false) {
             $mform->addElement('text', 'pmi', get_string('pmi', 'local_zoomadmin'));
         }

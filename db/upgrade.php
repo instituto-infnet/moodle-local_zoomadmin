@@ -50,7 +50,26 @@ function xmldb_local_zoomadmin_upgrade($oldversion) {
 
 		// zoomadmin savepoint reached.
 		upgrade_plugin_savepoint(true, 2018030600, 'local', 'zoomadmin');
+	} else if ($oldversion < 2018121200) {
+
+		// Create table local_zoomadmin_log.
+		$table = new xmldb_table('local_zoomadmin_log');
+		
+		$table->add_field('id', XMLDB_TYPE_INTEGER, '10', null, XMLDB_NOTNULL, XMLDB_SEQUENCE, null, null);
+		$table->add_field('timestamp', XMLDB_TYPE_INTEGER, '10', null, XMLDB_NOTNULL, null, null, 'id');
+		$table->add_field('classfunction', XMLDB_TYPE_CHAR, '255', null, XMLDB_NOTNULL, null, null, 'timestamp');
+		$table->add_field('message', XMLDB_TYPE_TEXT, null, null, XMLDB_NOTNULL, null, null, 'classfunction');
+
+		$table->add_key('primary', XMLDB_KEY_PRIMARY, array('id'));
+
+		if (!$dbman->table_exists($table)) {
+			$dbman->create_table($table, $continue=true, $feedback=true);
+		}
+
+		// zoomadmin savepoint reached.
+		upgrade_plugin_savepoint(true, 2018121200, 'local', 'zoomadmin');
 	}
+
 
 	return true;
 }

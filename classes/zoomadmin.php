@@ -27,7 +27,8 @@ namespace local_zoomadmin;
 
 defined('MOODLE_INTERNAL') || die();
 
-require_once(__DIR__ . '/../../../config.php');
+require_once($CFG->dirroot . '/config.php');
+require_once($CFG->dirroot . '/lib/filelib.php');
 require_once(__DIR__ . '/../zoom-credentials.php');
 require_once(__DIR__ . '/google_api_controller.php');
 
@@ -41,7 +42,7 @@ require_once(__DIR__ . '/google_api_controller.php');
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 class zoomadmin {
-    const BASE_URL = 'https://api.zoom.us/v1';
+    const BASE_URL = 'https://api.zoom.us/v2/';
     /**
      * @var int ERR_MAX_REQUESTS Código de erro de quantidade máxima
      *                           de requisições excedida
@@ -50,46 +51,70 @@ class zoomadmin {
     const MAX_PAGE_SIZE = 300;
     const KBYTE_BYTES = 1024;
     const MIN_VIDEO_SIZE = self::KBYTE_BYTES * self::KBYTE_BYTES * 20;
+    const INITIAL_RECORDING_DATE = '2018-11-01';
 
     var $commands = array();
 
-    public function __construct() {
-        $this->populate_commands();
-    }
-
-    private function request(command $command, $params, $attemptcount = 1) {
+    private function request($endpoint, $params = array(), $method = 'get', $attemptcount = 1) {
         /**
          * @var int $attemptsleeptime Tempo (microssegundos) que deve ser
          *                            aguardado para tentar novamente quando o
          *                            máximo de requisições for atingido
          */
-        $attemptsleeptime = 100000;
+        $attemptsleeptime = 100 * 1000;
         /** @var int $maxattemptcount Número máximo de novas tentativas */
         $maxattemptcount = 10;
+        $postcommandnames = array(
+            'create',
+            'update',
+            'delete'
+        );
 
-        $params = (is_array($params)) ? $params : array();
+        $credentials = $this->get_credentials();
+        $curl = new \curl();
 
-        $ch = curl_init($this->get_api_url($command));
-        curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-        curl_setopt($ch, CURLOPT_POSTFIELDS, http_build_query(array_merge($this->get_credentials(), $params), null, '&'));
+        $payload = array(
+            'iss' => $credentials['api_key'],
+            'exp' => time() + (1000 * 60)
+        );
+        $token = \Firebase\JWT\JWT::encode($payload, $credentials['api_secret']);
+        $curl->setHeader('Authorization: Bearer ' . $token);
 
-        $response = json_decode(curl_exec($ch));
-        curl_close($ch);
+        if ($method !== 'get') {
+            $curl->setHeader('content-type: application/json');
+            $params = is_array($params) ? json_encode($params) : $params;
+        }
 
-        if (isset($response->error)) {
-            if ($response->error->code === $this::ERR_MAX_REQUESTS && $attemptcount <= $maxattemptcount) {
-                usleep($attemptsleeptime);
-                return $this->request($command, $params, $attemptcount + 1);
+        $url = $this::BASE_URL . $endpoint;
+        $response = call_user_func_array(array($curl, $method), array($url, $params));
+
+        if ($curl->get_errno()) {
+            $errormsg = $curl->error;
+        }
+
+        $response = json_decode($response);
+
+        $httpstatus = $curl->get_info()['http_code'];
+        if ($httpstatus >= 400) {
+            if ($response) {
+                $errormsg = $response->message;
             } else {
-                $errorresponse = clone $response;
-                $errorresponse->command = $command;
-                $errorresponse->params = $params;
-                $errorresponse->attempts = $attemptcount;
-
-                print_object($errorresponse);
+                $errormsg = "HTTP Status $httpstatus";
             }
         }
 
+        if (isset($errormsg)) {
+            print_object(get_string('error_curl', 'local_zoomadmin', $errormsg));
+            print_object((object) array(
+                'url' => $url,
+                'params' => $params,
+                'method' => $method
+            ));
+        }
+
+        if (!isset($response)) {
+            $response = $httpstatus;
+        }
 
         return $response;
     }
@@ -131,10 +156,41 @@ class zoomadmin {
         return $category;
     }
 
+    public function get_log() {
+        $mform = new log_form();
+        if (!$fromform = $mform->get_data()) {
+            $today = strtotime('midnight', time());
+
+            $fromform = new \stdClass();
+            $fromform->from = strtotime('1 week ago', $today);
+            $fromform->to = $today;
+        }
+        $fromform->to = strtotime('tomorrow', $fromform->to) - 1;
+
+        $mform->set_data($fromform);
+        $mform->display();
+
+        $logrecords = $this->get_log_data($fromform);
+
+        $data = new \stdClass();
+        $data->log_records = array();
+
+        foreach ($logrecords as $record) {
+            $record->timestamp_formatted = date("Y-m-d G:i:s", $record->timestamp);
+            $data->log_records[] = $record;
+        }
+
+        return $data;
+    }
+
     public function handle_form(\stdClass $formdata) {
         confirm_sesskey();
 
-        $response = $this->request($this->commands[$formdata->zoom_command], get_object_vars($formdata));
+        $response = $this->request(
+            $formdata->endpoint,
+            get_object_vars($formdata),
+            $formdata->method
+        );
 
         if (isset($response->error)) {
             $response->notification->type = \core\output\notification::NOTIFY_ERROR;
@@ -153,10 +209,10 @@ class zoomadmin {
     }
 
     public function get_user_list($params) {
-        $commands = $this->commands;
+        $data = $this->request('users', $params);
 
-        $data = $this->request($commands['user_list'], $params);
-        $pending = $this->request($commands['user_pending'], $params);
+        $params['status'] = 'pending';
+        $pending = $this->request('users', $params);
         $data->pending = $pending->users;
 
         $data->users = $this->sort_users_by_name($data->users);
@@ -166,46 +222,53 @@ class zoomadmin {
     }
 
     public function get_user($userid) {
-        return $this->request($this->commands['user_get'], array('id' => $userid));
+        return $this->request('users/' . $userid);
     }
 
     public function get_meetings_list($params = array()) {
         $meetingsdata = new \stdClass();
-        $commands = $this->commands;
+        $meetingsdata->meetings = array();
+        $meetingsdata->live = array();
+        $meetingsdata->total_records = 0;
+        $meetingsdata->page_count = 0;
 
-        $meetingsdata = $this->request($commands['meeting_live'], $params);
-        $meetingsdata->live = $meetingsdata->meetings;
-
-        $userdata = $this->request($commands['user_list'], array('page_size' => $this::MAX_PAGE_SIZE));
+        $params['page_size'] = $this::MAX_PAGE_SIZE;
+        $userdata = $this->request('users', $params);
         $users = $userdata->users;
 
-        $meetingsdata->meetings = array();
-
         foreach ($users as $user) {
-            $params['host_id'] = $user->id;
-
-            $usermeetings = $this->request($commands['meeting_list'], $params);
-            $usermeetings->total_records = (int)$usermeetings->total_records;
+            $params['type'] = 'scheduled';
+            $usermeetings = $this->request(
+                implode('/', array('users', $user->id, 'meetings')),
+                $params
+            );
+            $usermeetings->total_records = $usermeetings->total_records;
 
             if ($usermeetings->total_records > 0) {
                 foreach($usermeetings->meetings as $index => $meeting) {
                     $usermeetings->meetings[$index]->host = $user;
                 }
 
-                $meetingsdata->total_records = (int)$meetingsdata->total_records + (int)$usermeetings->total_records;
-                $meetingsdata->page_count = max((int)$meetingsdata->page_count, (int)$usermeetings->page_count);
-
+                $meetingsdata->total_records += $usermeetings->total_records;
+                $meetingsdata->page_count = max($meetingsdata->page_count, $usermeetings->page_count);
                 $meetingsdata->meetings = array_merge($meetingsdata->meetings, $usermeetings->meetings);
             }
 
-        }
+            $params['type'] = 'live';
+            $usermeetings = $this->request(
+                implode('/', array('users', $user->id, 'meetings')),
+                $params
+            );
+            $usermeetings->total_records = $usermeetings->total_records;
 
-        foreach ($meetingsdata->live as $index => $meeting) {
-            foreach ($users as $user) {
-                if ($user->id === $meeting->host_id) {
-                    $meetingsdata->live[$index]->host = $user;
-                    break;
+            if ($usermeetings->total_records > 0) {
+                foreach($usermeetings->meetings as $index => $meeting) {
+                    $usermeetings->meetings[$index]->host = $user;
                 }
+
+                $meetingsdata->total_records += $usermeetings->total_records;
+                $meetingsdata->page_count = max($meetingsdata->page_count, $usermeetings->page_count);
+                $meetingsdata->live = array_merge($meetingsdata->live, $usermeetings->meetings);
             }
         }
 
@@ -240,9 +303,7 @@ class zoomadmin {
     }
 
     public function get_recording_list($params = array()) {
-        $commands = $this->commands;
-
-        $userdata = $this->request($commands['user_list'], array('page_size' => $this::MAX_PAGE_SIZE));
+        $userdata = $this->request('users', array('page_size' => $this::MAX_PAGE_SIZE));
         $users = $userdata->users;
 
         $recordingsdata = new \stdClass();
@@ -253,21 +314,25 @@ class zoomadmin {
         $recordingsdata->meetings = array();
 
         foreach ($users as $user) {
-            $params['host_id'] = $user->id;
             $params['page_size'] = $this::MAX_PAGE_SIZE;
+            $params['from'] = $this::INITIAL_RECORDING_DATE;
 
-            $userrecordings = $this->request($commands['recording_list'], $params);
-            $recordingsdata->total_records = (int)$userrecordings->total_records;
+            $userrecordings = $this->request(
+                implode('/', array('users', $user->id, 'recordings')),
+                $params
+            );
+
+            $recordingsdata->total_records = $userrecordings->total_records;
 
             if ($recordingsdata->total_records > 0) {
                 foreach($userrecordings->meetings as $index => $meeting) {
                     $userrecordings->meetings[$index]->host = $user;
                 }
 
-                $recordingsdata->total_records += (int)$userrecordings->total_records;
+                $recordingsdata->total_records += $userrecordings->total_records;
 
-                $recordingpagecount = (isset($recordingsdata->page_count)) ? (int)$recordingsdata->page_count : 1;
-                $userpagecount = (isset($userrecordings->page_count)) ? (int)$userrecordings->page_count : 1;
+                $recordingpagecount = (isset($recordingsdata->page_count)) ? $recordingsdata->page_count : 1;
+                $userpagecount = (isset($userrecordings->page_count)) ? $userrecordings->page_count : 1;
                 $recordingsdata->page_count = max($recordingpagecount, $userpagecount);
 
                 $recordingsdata->meetings = $this->set_recordings_data(array_merge($recordingsdata->meetings, $userrecordings->meetings));
@@ -289,7 +354,7 @@ class zoomadmin {
         }
 
         $meetingrecordings = $this->get_recording($meetingid);
-        $meetingnumber = $meetingrecordings->meeting_number;
+        $meetingnumber = $meetingrecordings->id;
         $pagedata = array_pop($this->get_recordings_page_data(array('meetingnumber' => $meetingnumber)));
 
         if (($meetingid !== null && $meetingnumber === null) || $pagedata === null) {
@@ -436,10 +501,10 @@ class zoomadmin {
 
     public function send_recordings_to_google_drive($meetingid, $pagedata = null) {
         $meetingrecordings = $this->get_recording($meetingid);
-        $meetingnumber = $meetingrecordings->meeting_number;
+        $meetingnumber = $meetingrecordings->id;
 
         if (!isset($pagedata)) {
-            $pagesdata = $this->get_recordings_page_data(array('meetingnumber' => $meetingnumber));
+            $pagesdata = $this->get_recordings_page_data($meetingnumber);
             $pagedata = array_pop($pagesdata);
         }
 
@@ -454,11 +519,10 @@ class zoomadmin {
         foreach ($gdrivefiles as $file) {
             if (isset($file->webViewLink)) {
                 $gdrivefilemsg = get_string('google_drive_upload_success', 'local_zoomadmin');
-                $deleted = $this->delete_recording($file->zoomfile->meeting_id);
+                $deleted = $this->delete_recording($file->zoomfile->meeting_id, $file->zoomfile->id);
             } else {
                 $gdrivefilemsg = get_string('google_drive_upload_error', 'local_zoomadmin');
             }
-
 
             $response .= '<li>' .
                 $gdrivefilemsg .
@@ -468,12 +532,14 @@ class zoomadmin {
                 $file->name .
                 '</a>.' .
                 $file->link_replaced_message .
-                (isset($deleted->deleted_at) ? 'Arquivo excluído do Zoom.' : 'Arquivo não excluído do Zoom.') .
+                (($deleted === 204) ? 'Arquivo excluído do Zoom.' : 'Arquivo não excluído do Zoom.') .
                 '</li>'
             ;
         }
 
         $response .= '</ul>';
+
+        $this->add_log('zoomadmin->send_recordings_to_google_drive', $response);
 
         return $response;
     }
@@ -493,15 +559,34 @@ class zoomadmin {
         $messages = array();
         $response = new \stdClass();
 
-        $recordingsdata = $this->get_recording_list(array('meeting_number' => $formdata['zoommeetingnumber']));
-        $meetings = $this->sort_meetings_by_start($recordingsdata->meetings);
+        // $recordingsdata = $this->get_meeting_recordings(array('meeting_number' => $formdata['zoommeetingnumber']));
+        $occurrences = $this->get_meeting_occurrences($formdata['zoommeetingnumber']);
+
+        $recordingsdata = array();
+
+        $messages[] = print_r($occurrences, true);
+        $occurrences = $this->sort_meetings_by_start($occurrences);
         $pagedata = $this->get_mod_page_data($formdata['pagecmid']);
 
-        foreach ($meetings as $meeting) {
+        // print_r($occurrences);
+        // /*
+        foreach ($occurrences as $meeting) {
             $messages[] = $this->send_recordings_to_google_drive($meeting->uuid, $pagedata);
         }
+        //*/
 
         return implode($messages);
+    }
+
+    public function add_log($classfunction, $message) {
+        global $DB;
+
+        $record = new \stdClass();
+        $record->timestamp = time();
+        $record->classfunction = $classfunction;
+        $record->message = $message;
+
+        $DB->insert_record('local_zoomadmin_log', $record);
     }
 
     private function populate_commands() {
@@ -536,6 +621,23 @@ class zoomadmin {
         return join('/', array($this::BASE_URL, $command->category, $command->name));
     }
 
+    private function get_log_data($formdata) {
+        global $DB;
+
+        return $DB->get_records_sql('
+                select *
+                from {local_zoomadmin_log}
+                where timestamp >= ?
+                    and timestamp <= ?
+                order by timestamp desc
+            ',
+            array(
+                $formdata->from,
+                $formdata->to
+            )
+        );
+    }
+
     private function set_recordings_data($meetings) {
         foreach($meetings as $meetingindex => $meeting) {
             $timezone = $this->get_meeting_timezone($meeting);
@@ -554,7 +656,7 @@ class zoomadmin {
                 $timediff = $recordingstarttime->diff($recordingendtime);
                 $meetings[$meetingindex]->recording_files[$fileindex]->recording_duration = sprintf('%02d', $timediff->h) . ':' . sprintf('%02d', $timediff->i) . ':' . sprintf('%02d', $timediff->s);
 
-                $meetings[$meetingindex]->recording_files[$fileindex]->meeting_number_formatted = $this->format_meeting_number($meeting->meeting_number);
+                $meetings[$meetingindex]->recording_files[$fileindex]->meeting_number_formatted = $this->format_meeting_number($meeting->id);
 
                 $meetings[$meetingindex]->recording_files[$fileindex]->file_size_formatted = $this->format_file_size($file->file_size);
 
@@ -642,20 +744,16 @@ class zoomadmin {
     }
 
     private function get_meeting_occurrences($meeting) {
+        $meetingid = isset($meeting->id) ? $meeting->id : $meeting;
         $occurrences = array();
-        $meetingdata = $this->request($this->commands['meeting_get'], array('id' => $meeting->id, 'host_id' => $meeting->host_id));
 
-        if (!isset($meetingdata->occurrences) || empty($meetingdata->occurrences)) {
-            $occurrences[] = $meeting;
+        $meetingdata = $this->request('past_meetings/' . $meetingid . '/instances');
+
+        if (empty($meetingdata->meetings)) {
+            $occurrences[] = isset($meeting->id) ? $meeting : $this->request('meetings/' . $meeting);
         } else {
-            foreach ($meetingdata->occurrences as $occurrence) {
-                $occurrencewithdata = clone $meeting;
-
-                foreach ($occurrence as $key => $value) {
-                    $occurrencewithdata->$key = $value;
-                }
-
-                $occurrences[] = $occurrencewithdata;
+            foreach ($meetingdata->meetings as $occurrence) {
+                $occurrences[] = $this->request('past_meetings/' . $occurrence->uuid);
             }
         }
 
@@ -665,8 +763,8 @@ class zoomadmin {
     private function get_recording($meetingid) {
         $commands = $this->commands;
 
-        $recordingmeeting = $this->request($commands['recording_get'], array('meeting_id' => $meetingid));
-        $recordingmeeting->host = $this->request($commands['user_get'], array('id' => $recordingmeeting->host_id));
+        $recordingmeeting = $this->request(implode('/', array('meetings', $meetingid, 'recordings')));
+        $recordingmeeting->host = $this->get_user($recordingmeeting->host_id);
 
         $recordingsdata = $this->set_recordings_data(array($recordingmeeting));
         $recordingmeeting = array_pop($recordingsdata);
@@ -674,8 +772,13 @@ class zoomadmin {
         return $recordingmeeting;
     }
 
-    private function delete_recording($meetingid) {
-        return $response = $this->request($this->commands['recording_delete'], array('meeting_id' => $meetingid));
+    private function get_meeting_recordings($meetingnumber) {
+
+    }
+
+    private function delete_recording($meetingid, $fileid) {
+        $response = $this->request(implode('/', array('meetings', $meetingid, 'recordings', $fileid)), null, 'delete');
+        return $response;
     }
 
     private function get_recordings_page_data($params = array()) {
@@ -886,7 +989,7 @@ class zoomadmin {
         foreach ($pagesdata as $pagedata) {
             foreach ($recordingsdata->meetings as $meetingdata) {
                 if (
-                    $meetingdata->meeting_number == $pagedata->zoommeetingnumber
+                    $meetingdata->id == $pagedata->zoommeetingnumber
                     && $meetingdata->start_time_unix > $pagedata->lastaddedtimestamp
                 ) {
                     $responses[] = '<a href="https://www.zoom.us/recording/management/detail?meeting_id=' .

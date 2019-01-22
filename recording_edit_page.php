@@ -58,7 +58,7 @@ if ($params['action'] !== 'delete') {
 
     if ($mform->is_cancelled()) {
         redirect($recordingpageslist);
-    } else if (($fromform = $mform->get_data())) {
+    } else if ($fromform = $mform->get_data()) {
         $response = $zoomadmin->recording_edit_page($fromform);
 
         if ($response->success !== true) {

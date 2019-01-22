@@ -5,3 +5,21 @@
 .path-admin-local-zoomadmin .nowrap {
     white-space: nowrap;
 }
+
+#zoomadmin_log th {
+    text-align: left;
+}
+
+#zoomadmin_log th,
+#zoomadmin_log td {
+    padding-right: 10px;
+    vertical-align: top;
+}
+
+#zoomadmin_log tr:nth-child(odd) {
+    background-color: #eee;
+}
+
+.zoomadmin_log_col_message {
+    width: 100%;
+}

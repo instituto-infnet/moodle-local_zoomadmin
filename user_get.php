@@ -26,10 +26,10 @@ require_once($CFG->libdir . '/adminlib.php');
 require_once(__DIR__ . '/classes/user_get_form.php');
 
 $params = array(
-    'zoom_command' => optional_param('zoom_command', null, PARAM_TEXT)
+    'method' => optional_param('method', null, PARAM_TEXT)
 );
 
-if ($params['zoom_command'] !== 'user_create') {
+if ($params['method'] !== 'post') {
     $params['id'] = required_param('id', PARAM_TEXT);
 }
 
@@ -49,13 +49,17 @@ require_login();
 require_capability('local/zoomadmin:managezoom', $context);
 
 $zoomadmin = new \local_zoomadmin\zoomadmin();
-$mform = new user_get_form(null, $params, null, null, null, in_array($params['zoom_command'], array('user_create', 'user_update')));
+$mform = new user_get_form(null, $params, null, null, null, in_array($params['method'], array('post', 'patch')));
 
 if ($mform->is_cancelled()) {
     redirect(new moodle_url('/local/zoomadmin/user_list.php'));
 } else if (($fromform = $mform->get_data())) {
     if (!isset($fromform->email)) {
         $fromform->email = $fromform->email_hidden;
+    }
+
+    if ($params['method'] === 'post') {
+        $fromform->user_info = clone $fromform;
     }
 
     $response = $zoomadmin->handle_form($fromform);
@@ -65,13 +69,13 @@ if ($mform->is_cancelled()) {
         \core\notification::add($response->notification->message, $response->notification->type);
     } else {
         redirect(
-            new moodle_url('/local/zoomadmin/user_get.php', array('id' => $response->id)),
+            new moodle_url('/local/zoomadmin/user_get.php', array('id' => $params['id'])),
             $response->notification->message,
             null,
             $response->notification->type
         );
     }
-} else if ($params['zoom_command'] !== 'user_create') {
+} else if ($params['method'] !== 'post') {
     $userdata = $zoomadmin->get_user($params['id']);
     $userdata->email_hidden = $userdata->email;
     $mform->set_data($userdata);

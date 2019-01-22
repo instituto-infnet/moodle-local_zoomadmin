@@ -72,6 +72,14 @@ class manage_zoom implements \renderable/*, \templatable*/ {
     }
 
     /**
+     * Carrega a lista de menagens registradas e envia ao template, para serem exibidas na tela.
+     * @return \stdClass Dados a serem utilizados pelo template.
+     */
+    public function export_log_for_template() {
+        return $this->zoomadmin->get_log();
+    }
+
+    /**
      * Obtém a lista de usuários do Zoom e envia ao template,
      * para ser exibida na tela.
      * @return \stdClass Dados a serem utilizados pelo template.
@@ -82,7 +90,7 @@ class manage_zoom implements \renderable/*, \templatable*/ {
         $data->user_get_url = './user_get.php';
         $data->user_list_url = './user_list.php';
         $data->button_add = $renderer->single_button(
-            new \moodle_url('/local/zoomadmin/user_get.php', array('zoom_command' => 'user_create')),
+            new \moodle_url('/local/zoomadmin/user_get.php', array('method' => 'post')),
             get_string('add_user', 'local_zoomadmin'),
             'get'
         );

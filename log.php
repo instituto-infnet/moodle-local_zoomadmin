@@ -14,18 +14,36 @@
 // You should have received a copy of the GNU General Public License
 // along with Moodle.  If not, see <http://www.gnu.org/licenses/>.
 /**
- * Detalhes da versão do plugin.
- *
- * Define a versão atual do plugin, nome e versão mínima do Moodle necessária.
+ * Página com log de mensagens registradas pelo plugin.
  *
  * @package    local_zoomadmin
  * @copyright  2017 Instituto Infnet {@link http://infnet.edu.br}
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 
-defined('MOODLE_INTERNAL') || die();
+require_once(__DIR__ . '/../../config.php');
+require_once($CFG->libdir . '/adminlib.php');
+require_once(__DIR__ . '/classes/log_form.php');
 
+$url = new moodle_url('/local/zoomadmin/log.php');
+$title = get_string('pluginname', 'local_zoomadmin')  . ' - ' . get_string('log', 'local_zoomadmin');
 
-$plugin->version   = 2019012200; // The current plugin version (Date: YYYYMMDDXX).
-$plugin->requires  = 2016051900; // Requires this Moodle version.
-$plugin->component = 'local_zoomadmin'; // Full name of the plugin (used for diagnostics).
+$PAGE->set_url($url);
+$context = context_system::instance();
+$PAGE->set_context($context);
+$PAGE->set_title($title);
+$PAGE->set_pagelayout('admin');
+
+admin_externalpage_setup('local_zoomadmin_log');
+
+require_login();
+require_capability('local/zoomadmin:managezoom', $context);
+
+$output = $PAGE->get_renderer('local_zoomadmin');
+$page = new \local_zoomadmin\output\manage_zoom();
+
+echo $output->header() . $output->heading($title);
+
+echo $output->render_page($page);
+
+echo $output->footer();

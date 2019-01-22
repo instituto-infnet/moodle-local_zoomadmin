@@ -1,0 +1,17 @@
+<table id="zoomadmin_log">
+    <tr>
+        <th class="zoomadmin_log_col_timestamp nowrap">Data/hora</th>
+        <th class="zoomadmin_log_col_classfunction nowrap">Classe/função</th>
+        <th class="zoomadmin_log_col_message">Mensagem</th>
+    </tr>
+{{#log_records}}
+    <tr>
+        <td class="zoomadmin_log_col_timestamp nowrap">{{timestamp_formatted}}</td>
+        <td class="zoomadmin_log_col_classfunction nowrap">{{classfunction}}</td>
+        <td class="zoomadmin_log_col_message">{{{message}}}</td>
+    </tr>
+{{/log_records}}
+</table>
+{{^log_records}}
+Não há mensagens a ser exibidas.
+{{/log_records}}

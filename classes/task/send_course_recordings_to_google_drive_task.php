@@ -29,6 +29,8 @@ class send_course_recordings_to_google_drive_task extends \core\task\adhoc_task 
         $zoomadmin = new \local_zoomadmin\zoomadmin();
 		$data = $this->get_custom_data();
 
-		mtrace($zoomadmin->send_course_recordings_to_google_drive($data));
+		$message = $zoomadmin->send_course_recordings_to_google_drive($data);
+		// $zoomadmin->add_log('send_course_recordings_to_google_drive_task->execute', $message);
+		mtrace($message);
 	}
 }

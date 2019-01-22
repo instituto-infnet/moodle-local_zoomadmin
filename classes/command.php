@@ -35,26 +35,27 @@ namespace local_zoomadmin;
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 class command {
-    var $category;
-    var $name;
+    var $endpoint;
+    var $method;
     var $showinindex;
     var $url;
+    var $category;
 
-    var $categorystringname;
+    var $endpointstringname;
     var $stringname;
     var $stringdescription;
 
-    public function __construct($category, $name, $showinindex = true) {
+    public function __construct($endpoint, $method, $showinindex = true) {
         $this->category = $category;
-        $this->name = $name;
+        $this->method = $method;
         $this->showinindex = $showinindex;
 
-        $this->url = './' . implode('_', array($this->category, $this->name)) . '.php';
+        $this->url = './' . implode('_', array($this->endpoint, $this->name)) . '.php';
 
         if ($showinindex === true) {
-            $this->categorystringname = get_string(join('_', array('category', $this->category)), 'local_zoomadmin');
-            $this->stringname = get_string(join('_', array('command', $this->category, $this->name)), 'local_zoomadmin');
-            $this->stringdescription = get_string(join('_', array('command', $this->category, $this->name, 'description')), 'local_zoomadmin');
+            $this->categorystringname = get_string(join('_', array('category', $this->endpoint)), 'local_zoomadmin');
+            $this->stringname = get_string(join('_', array('command', $this->endpoint, $this->method)), 'local_zoomadmin');
+            $this->stringdescription = get_string(join('_', array('command', $this->endpoint, $this->method, 'description')), 'local_zoomadmin');
         }
     }
 }

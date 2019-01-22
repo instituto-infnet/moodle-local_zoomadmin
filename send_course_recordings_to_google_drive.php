@@ -71,7 +71,18 @@ if ($formdata = $mform->get_data()) {
         where id = ' . $taskid . '
     ', $record);
 
-    echo get_string('send_recordings_task_created', 'local_zoomadmin', date('Y-m-d h:i:s',$exectime));
+    $message = get_string(
+        'send_recordings_task_created',
+        'local_zoomadmin',
+        array(
+            'zoommeetingnumber' => $formdata->zoommeetingnumber,
+            'pagecmid' => $formdata->pagecmid,
+            'exectime' => date('Y-m-d h:i:s',$exectime)
+        )
+    );
+
+    (new \local_zoomadmin\zoomadmin())->add_log('send_course_recordings_to_google_drive.php', $message);
+    echo $message;
 } else {
     $formdata = $params;
 }
