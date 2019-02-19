@@ -6,7 +6,8 @@
     white-space: nowrap;
 }
 
-#zoomadmin_log th {
+#zoomadmin_log th,
+#zoomadmin_participants-table .align-left {
     text-align: left;
 }
 
@@ -22,4 +23,23 @@
 
 .zoomadmin_log_col_message {
     width: 100%;
+}
+
+#zoomadmin_participants-table {
+    width: 0;
+}
+
+#zoomadmin_participants-table th,
+#zoomadmin_participants-table td {
+    border-bottom: 1px solid #ddd;
+    padding-right: 20px;
+}
+
+#zoomadmin_participants-table .align-center {
+    text-align: center;
+}
+
+#zoomadmin_participants-table .user-duration-minutes {
+    text-align: right;
+    padding: 0;
 }

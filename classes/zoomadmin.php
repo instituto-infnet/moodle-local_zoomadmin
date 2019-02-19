@@ -310,6 +310,7 @@ class zoomadmin {
         $recordingsdata->user_get_url = './user_get.php';
         $recordingsdata->add_recordings_to_page_url = './add_recordings_to_page.php';
         $recordingsdata->send_recordings_to_google_drive_url = './send_recordings_to_google_drive.php';
+        $recordingsdata->participants_url = './participants.php';
 
         $recordingsdata->meetings = array();
 
@@ -559,7 +560,6 @@ class zoomadmin {
         $messages = array();
         $response = new \stdClass();
 
-        // $recordingsdata = $this->get_meeting_recordings(array('meeting_number' => $formdata['zoommeetingnumber']));
         $occurrences = $this->get_meeting_occurrences($formdata['zoommeetingnumber']);
 
         $recordingsdata = array();
@@ -568,12 +568,9 @@ class zoomadmin {
         $occurrences = $this->sort_meetings_by_start($occurrences);
         $pagedata = $this->get_mod_page_data($formdata['pagecmid']);
 
-        // print_r($occurrences);
-        // /*
         foreach ($occurrences as $meeting) {
             $messages[] = $this->send_recordings_to_google_drive($meeting->uuid, $pagedata);
         }
-        //*/
 
         return implode($messages);
     }
@@ -587,6 +584,11 @@ class zoomadmin {
         $record->message = $message;
 
         $DB->insert_record('local_zoomadmin_log', $record);
+    }
+
+    public function get_participants_report($meetinguuid) {
+        $data = $this->get_participants_data($meetinguuid);
+        return $data;
     }
 
     private function populate_commands() {
@@ -752,18 +754,22 @@ class zoomadmin {
         if (empty($meetingdata->meetings)) {
             $occurrences[] = isset($meeting->id) ? $meeting : $this->request('meetings/' . $meeting);
         } else {
-            foreach ($meetingdata->meetings as $occurrence) {
-                $occurrences[] = $this->request('past_meetings/' . $occurrence->uuid);
+        foreach ($meetingdata->meetings as $occurrence) {
+                $occurrences[] = $this->get_meeting_occurence_data($occurrence->uuid);
             }
         }
 
         return $occurrences;
     }
 
+    private function get_meeting_occurence_data($uuid) {
+        return $this->request('past_meetings/' . urlencode(urlencode($uuid)));
+    }
+
     private function get_recording($meetingid) {
         $commands = $this->commands;
 
-        $recordingmeeting = $this->request(implode('/', array('meetings', $meetingid, 'recordings')));
+        $recordingmeeting = $this->request(implode('/', array('meetings', urlencode(urlencode($meetingid)), 'recordings')));
         $recordingmeeting->host = $this->get_user($recordingmeeting->host_id);
 
         $recordingsdata = $this->set_recordings_data(array($recordingmeeting));
@@ -772,12 +778,8 @@ class zoomadmin {
         return $recordingmeeting;
     }
 
-    private function get_meeting_recordings($meetingnumber) {
-
-    }
-
     private function delete_recording($meetingid, $fileid) {
-        $response = $this->request(implode('/', array('meetings', $meetingid, 'recordings', $fileid)), null, 'delete');
+        $response = $this->request(implode('/', array('meetings', urlencode(urlencode($meetingid)), 'recordings', urlencode(urlencode($fileid)))), null, 'delete');
         return $response;
     }
 
@@ -891,6 +893,18 @@ class zoomadmin {
                 $a->setAttribute('href', $url['url']);
                 $a->setAttribute('target', '_blank');
             }
+
+            $li = $urlul->appendChild($doc->createElement('li'));
+            $li->setAttribute('class', 'disciplina_codes');
+            $a = $li->appendChild($doc->createElement('a', get_string('participants', 'local_zoomadmin')));
+            $a->setAttribute(
+                'href',
+                (new \moodle_url(
+                    '/local/zoomadmin/participants.php',
+                    array('meetinguuid' => $meetingrecordings->uuid)
+                ))
+            );
+            $a->setAttribute('target', '_blank');
 
             $classnumber = 1;
 
@@ -1165,5 +1179,127 @@ class zoomadmin {
         } else {
             return get_string('error_recordings_replace_url_in_page', 'local_zoomadmin', $recordingpageurl->out());
         }
+    }
+
+    private function get_participants_data($meetinguuid) {
+        global $USER;
+        $context = \context_system::instance();
+
+        $filteremail = (
+            !has_capability('local/zoomadmin:managezoom', $context) &&
+            strpos($USER->email, '@prof.infnet.edu.br') === false
+        ) ? $USER->email : null;
+
+        $data = $this->get_meeting_occurence_data($meetinguuid);
+        $data->host = $this->get_user($data->host_id);
+
+        $timezone = $this->get_meeting_timezone($data);
+        $meetingstarttime = (new \DateTime($data->start_time))->setTimezone($timezone);
+        $data->start_time_formatted = $meetingstarttime->format('d/m/Y H:i:s');
+        $meetingendtime = (new \DateTime($data->end_time))->setTimezone($timezone);
+        $data->end_time_formatted = $meetingendtime->format('H:i:s');
+
+        $data->participants = $this->get_stored_participants_data($meetinguuid);
+
+        if (empty($data->participants)) {
+            $this->retrieve_participants_data($data);
+            $data->participants = $this->get_stored_participants_data($meetinguuid);
+        }
+
+        $indexedparticipants = array();
+
+        foreach ($data->participants as $participant) {
+            if (
+                (!isset($filteremail) || $participant->useremail === $filteremail)
+                && (!isset($participant->useremail) || $participant->useremail !== $data->host->email)
+            ) {
+                $participant->join_leave_times = explode(',', $participant->join_leave_times);
+
+                foreach ($participant->join_leave_times as $index => $times) {
+                    $participant->join_leave_times[$index] = new \stdClass();
+                    $participant->join_leave_times[$index]->times = $times;
+                }
+
+                $indexedparticipants[] = $participant;
+            }
+        }
+
+        $data->participants = $indexedparticipants;
+        $data->hasdata = !empty($data->participants);
+
+        if (!$data->hasdata) {
+            $data->nodatamsg = get_string((isset($filteremail) ? 'report_no_permission' : 'report_no_data'), 'local_zoomadmin');
+        }
+
+        return $data;
+    }
+
+    private function get_stored_participants_data($meetinguuid) {
+        global $DB;
+
+        $sqlstring = "
+            select p.id,
+                p.username,
+                p.useremail,
+                GROUP_CONCAT(
+                    CONCAT_WS(
+                        ' - ',
+                        FROM_UNIXTIME(p.jointime, '%k:%i:%s'),
+                        FROM_UNIXTIME(p.leavetime, '%k:%i:%s')
+                    )
+                    SEPARATOR ', '
+                ) join_leave_times,
+                CEILING(SUM(p.duration)/60) sum_duration,
+                CAST(SUM(p.duration)/(
+                    select MAX(p2.leavetime) - MIN(p2.jointime)
+                    from mdl_local_zoomadmin_participants p2
+                    where p2.meetinguuid = p.meetinguuid
+                ) * 100 as UNSIGNED) percent_duration,
+                CAST(AVG(p.attentiveness) as UNSIGNED) avg_attentiveness
+            from {local_zoomadmin_participants} p
+            where p.meetinguuid = ?
+            group by p.username,
+                p.useremail
+            order by p.username,
+                p.useremail,
+                p.jointime
+        ";
+
+        return $DB->get_records_sql($sqlstring, array($meetinguuid));
+    }
+
+    private function retrieve_participants_data($meetingdata) {
+        $data = new \stdClass();
+        $data->meetinguuid = $meetingdata->uuid;
+        $data->meetingnumber = $meetingdata->id;
+
+        $rowstoinsert = array();
+
+        $participantsdata = $this->request('report/meetings/' . urlencode(urlencode($data->meetinguuid)) . '/participants');
+
+        foreach ($participantsdata->participants as $participant) {
+            $rowdata = clone $data;
+
+            $rowdata->useruuid = $participant->id;
+            $rowdata->username = $participant->name;
+            $rowdata->useremail = $participant->user_email;
+            $rowdata->jointime = strtotime($participant->join_time);
+            $rowdata->leavetime = strtotime($participant->leave_time);
+            $rowdata->duration = $participant->duration;
+            $rowdata->attentiveness = (double) str_replace('%', '', $participant->attentiveness_score);
+            $rowdata->userid = $participant->user_id;
+
+            $rowstoinsert[] = $rowdata;
+        }
+
+        $this->insert_participants_data($rowstoinsert);
+
+        return $rowstoinsert;
+    }
+
+    public function insert_participants_data($data) {
+        global $DB;
+
+        $DB->insert_records('local_zoomadmin_participants', $data);
     }
 }

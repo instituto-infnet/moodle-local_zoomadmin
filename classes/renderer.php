@@ -49,7 +49,7 @@ class renderer extends \plugin_renderer_base {
         $pagepatharray = explode('/', $this->page->url->get_path());
         $pagename = str_replace('.php', '', array_pop($pagepatharray));
 
-        $data = $page->export_for_template($pagename, $this);
+        $data = $page->export_for_template($pagename, $this, $page);
         return $this->render_from_template('local_zoomadmin/' . $pagename, $data);
     }
 }

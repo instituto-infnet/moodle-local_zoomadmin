@@ -55,9 +55,9 @@ class manage_zoom implements \renderable/*, \templatable*/ {
 
 
     // TODO: definir $renderer como renderer_base
-    public function export_for_template($pagename, $renderer = null) {
+    public function export_for_template($pagename, $renderer = null, $page = null) {
         $functionname = 'export_' . $pagename . '_for_template';
-        return $this->$functionname($renderer);
+        return $this->$functionname($renderer, $page);
     }
 
     /**
@@ -77,6 +77,14 @@ class manage_zoom implements \renderable/*, \templatable*/ {
      */
     public function export_log_for_template() {
         return $this->zoomadmin->get_log();
+    }
+
+    /**
+     * Carrega a lista de participantes de uma sessão envia ao template, para serem exibidas na tela.
+     * @return \stdClass Dados a serem utilizados pelo template.
+     */
+    public function export_participants_for_template($renderer, $page) {
+        return $this->zoomadmin->get_participants_report($page->params['meetinguuid']);
     }
 
     /**

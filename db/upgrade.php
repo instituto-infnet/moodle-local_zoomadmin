@@ -54,7 +54,7 @@ function xmldb_local_zoomadmin_upgrade($oldversion) {
 
 		// Create table local_zoomadmin_log.
 		$table = new xmldb_table('local_zoomadmin_log');
-		
+
 		$table->add_field('id', XMLDB_TYPE_INTEGER, '10', null, XMLDB_NOTNULL, XMLDB_SEQUENCE, null, null);
 		$table->add_field('timestamp', XMLDB_TYPE_INTEGER, '10', null, XMLDB_NOTNULL, null, null, 'id');
 		$table->add_field('classfunction', XMLDB_TYPE_CHAR, '255', null, XMLDB_NOTNULL, null, null, 'timestamp');
@@ -68,6 +68,31 @@ function xmldb_local_zoomadmin_upgrade($oldversion) {
 
 		// zoomadmin savepoint reached.
 		upgrade_plugin_savepoint(true, 2018121200, 'local', 'zoomadmin');
+	} else if ($oldversion < 2019013100) {
+
+		// Create table local_zoomadmin_log.
+		$table = new xmldb_table('local_zoomadmin_participants');
+
+		$table->add_field('id', XMLDB_TYPE_INTEGER, '10', null, XMLDB_NOTNULL, XMLDB_SEQUENCE, null, null);
+		$table->add_field('meetingnumber', XMLDB_TYPE_INTEGER, '11', null, XMLDB_NOTNULL, null, null, 'id');
+		$table->add_field('meetinguuid', XMLDB_TYPE_CHAR, '255', null, XMLDB_NOTNULL, null, null, 'meetingnumber');
+		$table->add_field('useruuid', XMLDB_TYPE_CHAR, '255', null, null, null, null, 'meetinguuid');
+		$table->add_field('userid', XMLDB_TYPE_CHAR, '255', null, null, null, null, 'useruuid');
+		$table->add_field('username', XMLDB_TYPE_CHAR, '255', null, XMLDB_NOTNULL, null, null, 'useruuid');
+		$table->add_field('useremail', XMLDB_TYPE_CHAR, '255', null, null, null, null, 'username');
+		$table->add_field('jointime', XMLDB_TYPE_INTEGER, '10', null, XMLDB_NOTNULL, null, null, 'useremail');
+		$table->add_field('leavetime', XMLDB_TYPE_INTEGER, '10', null, XMLDB_NOTNULL, null, null, 'jointime');
+		$table->add_field('duration', XMLDB_TYPE_INTEGER, '10', null, XMLDB_NOTNULL, null, null, 'leavetime');
+		$table->add_field('attentiveness', XMLDB_TYPE_NUMBER, '10, 5', null, XMLDB_NOTNULL, null, null, 'duration');
+
+		$table->add_key('primary', XMLDB_KEY_PRIMARY, array('id'));
+
+		if (!$dbman->table_exists($table)) {
+			$dbman->create_table($table, $continue=true, $feedback=true);
+		}
+
+		// zoomadmin savepoint reached.
+		upgrade_plugin_savepoint(true, 2019013100, 'local', 'zoomadmin');
 	}
 
 

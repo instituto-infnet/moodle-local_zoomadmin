@@ -44,7 +44,7 @@ if (has_capability('local/zoomadmin:managezoom', context_system::instance())) {
             new moodle_url('/local/zoomadmin/log.php')
         )
     );
-    
+
     $ADMIN->add('zoom', new admin_category('zoom_category_user', get_string('category_user', 'local_zoomadmin')));
     $ADMIN->add(
         'zoom_category_user',
@@ -62,6 +62,15 @@ if (has_capability('local/zoomadmin:managezoom', context_system::instance())) {
             'local_zoomadmin_meeting_list',
             get_string('command_meeting_list', 'local_zoomadmin'),
             new moodle_url('/local/zoomadmin/meeting_list.php')
+        )
+    );
+
+    $ADMIN->add(
+        'zoom_category_meeting',
+        new admin_externalpage(
+            'local_zoomadmin_participants',
+            get_string('participants', 'local_zoomadmin'),
+            new moodle_url('/local/zoomadmin/participants.php')
         )
     );
 

@@ -1,0 +1,36 @@
+<h3>Disciplina: {{topic}}</h3>
+<h4>{{meeting_number_formatted}}</h4>
+<h4>
+{{#host}}
+Docente: {{first_name}} {{last_name}} ({{email}})
+{{/host}}
+</h4>
+<h4>Data/hora: {{start_time_formatted}} - {{end_time_formatted}} ({{duration}} minutos)</h4>
+
+{{#hasdata}}
+<table id="zoomadmin_participants-table">
+    <tr>
+        <th class="align-left">Nome</th>
+        <th class="align-left">E-mail</th>
+        <th class="align-left" colspan="2">Duração em minutos</th>
+        <th>Entrada - saída</th>
+        <th>Atenção</th>
+    </tr>
+{{#participants}}
+    <tr>
+        <td>{{username}}</td>
+        <td>{{useremail}}</td>
+        <td class="user-duration-minutes">{{sum_duration}}</td>
+        <td>({{percent_duration}}%)</td>
+        <td class="align-center">
+        {{#join_leave_times}}
+            {{times}}<br />
+        {{/join_leave_times}}
+        </td>
+        <td class="align-center">{{avg_attentiveness}}%</td>
+    </tr>
+{{/participants}}
+</table>
+{{/hasdata}}
+
+{{nodatamsg}}
