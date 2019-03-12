@@ -70,7 +70,7 @@ function xmldb_local_zoomadmin_upgrade($oldversion) {
 		upgrade_plugin_savepoint(true, 2018121200, 'local', 'zoomadmin');
 	} else if ($oldversion < 2019013100) {
 
-		// Create table local_zoomadmin_log.
+		// Create table local_zoomadmin_participants.
 		$table = new xmldb_table('local_zoomadmin_participants');
 
 		$table->add_field('id', XMLDB_TYPE_INTEGER, '10', null, XMLDB_NOTNULL, XMLDB_SEQUENCE, null, null);
@@ -93,7 +93,31 @@ function xmldb_local_zoomadmin_upgrade($oldversion) {
 
 		// zoomadmin savepoint reached.
 		upgrade_plugin_savepoint(true, 2019013100, 'local', 'zoomadmin');
+	} else if ($oldversion < 2019030700) {
+
+		// Define field recording to be added to local_zoomadmin_participants.
+		$table = new xmldb_table('local_zoomadmin_participants');
+		$field = new xmldb_field('recording', XMLDB_TYPE_INTEGER, '1', null, XMLDB_NOTNULL, null, '0', 'attentiveness');
+
+		if (!$dbman->field_exists($table, $field)) {
+			$dbman->add_field($table, $field);
+		}
+
+		// Changing nullability of field duration on table local_zoomadmin_participants to null.
+		$field = new xmldb_field('duration', XMLDB_TYPE_INTEGER, '10', null, null, null, null, 'leavetime');
+        // Launch change of nullability for field duration.
+        $dbman->change_field_notnull($table, $field);
+
+		// Changing nullability of field attentiveness on table local_zoomadmin_participants to null.
+		$field = new xmldb_field('attentiveness', XMLDB_TYPE_NUMBER, '10, 5', null, null, null, null, 'duration');
+        // Launch change of nullability for field attentiveness.
+        $dbman->change_field_notnull($table, $field);
+
+		// zoomadmin savepoint reached.
+		upgrade_plugin_savepoint(true, 2019030700, 'local', 'zoomadmin');
 	}
+
+
 
 
 	return true;

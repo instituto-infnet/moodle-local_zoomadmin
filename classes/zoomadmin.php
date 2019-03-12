@@ -356,7 +356,10 @@ class zoomadmin {
 
         $meetingrecordings = $this->get_recording($meetingid);
         $meetingnumber = $meetingrecordings->id;
-        $pagedata = array_pop($this->get_recordings_page_data(array('meetingnumber' => $meetingnumber)));
+        $pagedatalist = $this->get_recordings_page_data(array('meetingnumber' => $meetingnumber));
+        $pagedata = array_pop($pagedatalist);
+
+        $this->retrieve_participants_data($meetingrecordings);
 
         if (($meetingid !== null && $meetingnumber === null) || $pagedata === null) {
             return get_string('error_no_page_instance_found', 'local_zoomadmin', $this->format_meeting_number($meetingnumber));
@@ -591,6 +594,18 @@ class zoomadmin {
         return $data;
     }
 
+    public function insert_recording_participant($uuid, $userid) {
+        $data = $this->insert_recording_viewed_participant_data($uuid, $userid);
+        $this->add_log(
+            'zoomadmin->insert_recording_participant',
+            'Registrado acesso à gravação de uuid "' . $uuid .
+                '" pelo usuário ' . $data->username .
+                ' (id Moodle ' . $userid .
+                ', e-mail ' . $data->useremail .
+                ').'
+        );
+    }
+
     private function populate_commands() {
         $this->commands['user_list'] = new command('user', 'list');
         $this->commands['user_pending'] = new command('user', 'pending', false);
@@ -660,10 +675,10 @@ class zoomadmin {
 
                 $meetings[$meetingindex]->recording_files[$fileindex]->meeting_number_formatted = $this->format_meeting_number($meeting->id);
 
-                $meetings[$meetingindex]->recording_files[$fileindex]->file_size_formatted = $this->format_file_size($file->file_size);
+                $meetings[$meetingindex]->recording_files[$fileindex]->file_size_formatted = (isset($file->file_size)) ? $this->format_file_size($file->file_size) : null;
 
                 $meetings[$meetingindex]->recording_files[$fileindex]->file_type_string = get_string('file_type_' . $file->file_type, 'local_zoomadmin');
-                $meetings[$meetingindex]->recording_files[$fileindex]->recording_status_string = get_string('recording_status_' . $file->status, 'local_zoomadmin');
+                $meetings[$meetingindex]->recording_files[$fileindex]->recording_status_string = (isset($file->status)) ? get_string('recording_status_' . $file->status, 'local_zoomadmin') : null;
             }
         }
 
@@ -754,7 +769,7 @@ class zoomadmin {
         if (empty($meetingdata->meetings)) {
             $occurrences[] = isset($meeting->id) ? $meeting : $this->request('meetings/' . $meeting);
         } else {
-        foreach ($meetingdata->meetings as $occurrence) {
+            foreach ($meetingdata->meetings as $occurrence) {
                 $occurrences[] = $this->get_meeting_occurence_data($occurrence->uuid);
             }
         }
@@ -879,6 +894,7 @@ class zoomadmin {
 
         if ($recordingcount > 0) {
             $urlul = $doc->createElement('ul');
+            $uuid = $meetingrecordings->uuid;
             $multiplevideos = ($recordingurls[$recordingcount - 1]['videoindex'] > 1);
 
             foreach ($recordingurls as $url) {
@@ -890,6 +906,8 @@ class zoomadmin {
 
                 $li = $urlul->appendChild($doc->createElement('li'));
                 $a = $li->appendChild($doc->createElement('a', $anchortext));
+                $a->setAttribute('data-uuid', $uuid);
+                $a->setAttribute('data-filetype', $url['filetype']);
                 $a->setAttribute('href', $url['url']);
                 $a->setAttribute('target', '_blank');
             }
@@ -897,6 +915,8 @@ class zoomadmin {
             $li = $urlul->appendChild($doc->createElement('li'));
             $li->setAttribute('class', 'disciplina_codes');
             $a = $li->appendChild($doc->createElement('a', get_string('participants', 'local_zoomadmin')));
+            $a->setAttribute('data-uuid', $uuid);
+            $a->setAttribute('data-filetype', 'participants');
             $a->setAttribute(
                 'href',
                 (new \moodle_url(
@@ -917,7 +937,8 @@ class zoomadmin {
 
             if ($h2length) {
                 $lastclasstitle = $h2list->item($h2length - 1)->textContent;
-                $lastclassnumber = array_pop(explode(' ', $lastclasstitle));
+                $lasttitletextarray = explode(' ', $lastclasstitle);
+                $lastclassnumber = array_pop($lasttitletextarray);
 
                 if (filter_var($lastclassnumber, FILTER_VALIDATE_INT) !== false) {
                     $classnumber = $lastclassnumber + 1;
@@ -947,6 +968,7 @@ class zoomadmin {
                     $videoindex++;
 
                     $recordinglist[] = array(
+                        'filetype' => $recording->file_type,
                         'text' => get_string('recording_text_' . $filetype, 'local_zoomadmin'),
                         'url' => $recording->play_url,
                         'videoindex' => $videoindex
@@ -958,6 +980,7 @@ class zoomadmin {
                 }
             } else if ($filetype === 'CHAT' && $ignoredvideo === false) {
                 $recordinglist[] = array(
+                    'filetype' => $recording->file_type,
                     'text' => get_string('recording_text_' . $filetype, 'local_zoomadmin'),
                     'url' => $recording->download_url,
                     'videoindex' => $videoindex
@@ -1213,11 +1236,28 @@ class zoomadmin {
                 (!isset($filteremail) || $participant->useremail === $filteremail)
                 && (!isset($participant->useremail) || $participant->useremail !== $data->host->email)
             ) {
-                $participant->join_leave_times = explode(',', $participant->join_leave_times);
+                $participant->viewed_recording = false;
+                $participant->session_participant = false;
 
+                $participant->join_leave_times = explode(',', $participant->join_leave_times);
                 foreach ($participant->join_leave_times as $index => $times) {
+                    if (strpos($times, '*') !== false) {
+                        $participant->viewed_recording = true;
+                    } else {
+                        $participant->session_participant = true;
+                    }
+
                     $participant->join_leave_times[$index] = new \stdClass();
                     $participant->join_leave_times[$index]->times = $times;
+                }
+
+                if (
+                    $participant->viewed_recording === true
+                    && $participant->session_participant === false
+                ) {
+                    $participant->sum_duration = 'N/D';
+                    $participant->percent_duration = '';
+                    $participant->avg_attentiveness = 'N/D';
                 }
 
                 $indexedparticipants[] = $participant;
@@ -1242,20 +1282,30 @@ class zoomadmin {
                 p.username,
                 p.useremail,
                 GROUP_CONCAT(
-                    CONCAT_WS(
-                        ' - ',
-                        FROM_UNIXTIME(p.jointime, '%k:%i:%s'),
-                        FROM_UNIXTIME(p.leavetime, '%k:%i:%s')
-                    )
+                    case
+                        when p.recording = 0 then
+                            CONCAT_WS(
+                                ' - ',
+                                FROM_UNIXTIME(p.jointime, '%k:%i:%s'),
+                                FROM_UNIXTIME(p.leavetime, '%k:%i:%s')
+                            )
+                        else CONCAT(FROM_UNIXTIME(p.jointime, '%d/%m/%Y %k:%i:%s'), '*')
+                    end
                     SEPARATOR ', '
                 ) join_leave_times,
                 CEILING(SUM(p.duration)/60) sum_duration,
-                CAST(SUM(p.duration)/(
-                    select MAX(p2.leavetime) - MIN(p2.jointime)
-                    from mdl_local_zoomadmin_participants p2
-                    where p2.meetinguuid = p.meetinguuid
-                ) * 100 as UNSIGNED) percent_duration,
-                CAST(AVG(p.attentiveness) as UNSIGNED) avg_attentiveness
+                CONCAT(
+                    '(',
+                    CAST(SUM(p.duration)/(
+                        select MAX(p2.leavetime) - MIN(p2.jointime)
+                        from mdl_local_zoomadmin_participants p2
+                        where p2.meetinguuid = p.meetinguuid
+                            and p2.recording = 0
+                    ) * 100 as UNSIGNED),
+                    ')',
+                    '%'
+                ) percent_duration,
+                CONCAT(CAST(AVG(p.attentiveness) as UNSIGNED), '%') avg_attentiveness
             from {local_zoomadmin_participants} p
             where p.meetinguuid = ?
             group by p.username,
@@ -1272,6 +1322,7 @@ class zoomadmin {
         $data = new \stdClass();
         $data->meetinguuid = $meetingdata->uuid;
         $data->meetingnumber = $meetingdata->id;
+        $data->recording = 0;
 
         $rowstoinsert = array();
 
@@ -1297,9 +1348,35 @@ class zoomadmin {
         return $rowstoinsert;
     }
 
-    public function insert_participants_data($data) {
+    private function insert_participants_data($data) {
         global $DB;
 
         $DB->insert_records('local_zoomadmin_participants', $data);
+    }
+
+    private function insert_recording_viewed_participant_data($uuid, $userid) {
+        $data = new \stdClass();
+
+        $meetingdata = $this->get_meeting_occurence_data($uuid);
+        $userdata = $this->get_moodle_user_data($userid);
+
+        $data->meetinguuid = $uuid;
+        $data->meetingnumber = $meetingdata->id;
+        $data->username = $userdata->firstname . ' ' . $userdata->lastname;
+        $data->useremail = $userdata->email;
+        $data->jointime = time();
+        $data->leavetime = $data->jointime;
+        $data->duration = 0;
+        $data->userid = $userid;
+        $data->recording = 1;
+
+        $this->insert_participants_data([$data]);
+
+        return $data;
+    }
+
+    private function get_moodle_user_data($userid) {
+        global $DB;
+        return $DB->get_record('user', array('id' => $userid));
     }
 }

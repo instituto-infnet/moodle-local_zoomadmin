@@ -148,7 +148,9 @@ class manage_zoom implements \renderable/*, \templatable*/ {
      */
     public function export_recording_list_for_template($renderer) {
         $data = $this->zoomadmin->get_recording_list($this->params);
-        $data->pages = $this->get_pagination((int)$data->page_number, $data->page_count);
+
+        $pagenumber = (isset($data->page_number)) ? (int)$data->page_number : 1;
+        $data->pages = $this->get_pagination($pagenumber, $data->page_count);
 
         return $data;
     }

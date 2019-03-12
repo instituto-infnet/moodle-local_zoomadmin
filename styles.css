@@ -39,7 +39,8 @@
     text-align: center;
 }
 
-#zoomadmin_participants-table .user-duration-minutes {
-    text-align: right;
-    padding: 0;
+.footnote {
+    margin-top: 1em;
+    font-style: italic;
+    font-size: 0.9em;
 }
