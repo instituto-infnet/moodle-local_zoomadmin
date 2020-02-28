@@ -1,0 +1,61 @@
+<table id="zoomadmin_participants-table">
+    <thead>
+        <tr>
+            <th colspan="{{totalcols}}" class="align-left">
+                <h4>Disciplina: {{coursename}}</h4>
+                <h5>Bloco: {{catname}}</h5>
+                <h5>
+                {{#host}}
+                Docente: {{first_name}} {{last_name}}
+                {{/host}}
+                </h5>
+            </th>
+        </tr>
+
+{{#hasdata}}
+        <tr>
+            <th class="align-left">Nome</th>
+            <th class="align-left">E-mail</th>
+            <th class="nowrap highlight-low" colspan="2">Ao vivo<br/>(% minutos)</th>
+            <th class="nowrap highlight-low">Gravadas</th>
+            <th class="nowrap highlight">Ao vivo<br/>e gravadas</th>
+    {{#occurrences}}
+            <th>{{{start_time_formatted}}}</th>
+    {{/occurrences}}
+        </tr>
+    </thead>
+    <tbody>
+{{#participants}}
+        <tr>
+            <td class="{{backgroundclass}}">{{username}}</td>
+            <td class="{{backgroundclass}}">{{email}}</td>
+            <td class="align-right highlight-low padding-right-5 {{backgroundclass}}">{{attended}}/{{occurrencescount}}</td>
+            <td class="align-left highlight-low padding-left-5 {{backgroundclass}}">({{avg_duration}}%)</td>
+            <td class="align-center highlight-low {{backgroundclass}}">{{recording}}/{{occurrencescount}}</td>
+            <td class="align-center highlight {{backgroundclass}}">{{attended_or_recording}}/{{occurrencescount}}</td>
+    {{#occurrences}}
+            <td class="align-center {{backgroundclass}}">
+                {{{displaytext}}}
+            </td>
+    {{/occurrences}}
+        </tr>
+{{/participants}}
+    </tbody>
+</table>
+<p class="footnote">
+    <span class="bold">Estudantes: para garantir que vocês consigam visualizar todas as participações em aulas ao vivo corretamente, é necessário que, antes do início da aula, façam login no Zoom, utilizando o e-mail do Instituto Infnet (final @al.infnet.edu.br). O login pode ser realizado pelo aplicativo ou diretamente no site (<a target="blank" href="https://zoom.us">https://zoom.us</a>)</span>
+    <br/>
+    <br/>
+    Quando o aluno assiste a uma aula ao vivo, embaixo da sua data são sinalizadas duas informações: a quantidade de minutos que o aluno assistiu e, entre parêntesis, o percentual que esta quantidade representa do total da aula.
+    <br/>
+    Quando o aluno assiste a uma aula gravada, embaixo da sua data é sinalizada tal informação com a letra G maiúscula e em negrito.
+    <br/>
+    Ao vivo (% minutos): número de encontros ao vivo aos quais o aluno compareceu. Entre parêntesis, percentual dos minutos dos encontros ao vivo que o aluno assistiu. Ignora encontros em que o aluno não compareceu. Nas aulas gravadas não está disponível este dado.
+    <br/>
+    Ao Vivo e gravadas: número de encontros em que o aluno compareceu ao vivo ou acessou a aula gravada pelo Moodle.
+    <br/>
+    <span class="bold">Atenção: quando o aluno acessa a aula pelo Zoom sem usar o mesmo login do Moodle, ele aparece em mais de uma linha no relatório. Por favor considere isto ao analisar as presenças, observando os nomes de cada aluno.</span>
+</p>
+{{/hasdata}}
+
+{{nodatamsg}}

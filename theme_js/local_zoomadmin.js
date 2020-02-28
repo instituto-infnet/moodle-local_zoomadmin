@@ -8,16 +8,17 @@ require(['jquery'], function($) {
     let href = $('a[data-title="profile,moodle"]').attr('href');
     let userid = href.substring(href.indexOf('id=') + 3);
 
-    $.ajax(
-      '../../webservice/rest/server.php?' +
-      'wstoken=a4f6103b7a46cc1f70ca8fa304b49fd1' +
-      '&wsfunction=local_zoomadmin_insert_recording_participant' +
-      '&uuid=' + $(this).attr('data-uuid') +
-      '&userid=' + userid,
-      {
-        success: function(response) {
-          console.info(response);
-        }
-      });
+    $.ajax({
+      url: '../../webservice/rest/server.php?',
+      data: {
+        wstoken: 'a199cce22b9fba6c22ae0913e8857a6b',
+        wsfunction: 'local_zoomadmin_insert_recording_participant',
+        uuid: $(this).attr('data-uuid'),
+        userid: userid,
+      },
+      success: function(response) {
+        console.info(response);
+      }
+    });
   });
 });

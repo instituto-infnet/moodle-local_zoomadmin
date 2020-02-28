@@ -74,6 +74,15 @@ if (has_capability('local/zoomadmin:managezoom', context_system::instance())) {
         )
     );
 
+    $ADMIN->add(
+        'zoom_category_meeting',
+        new admin_externalpage(
+            'local_zoomadmin_participants_all_instances',
+            get_string('participants_all_instances', 'local_zoomadmin'),
+            new moodle_url('/local/zoomadmin/participants_all_instances.php')
+        )
+    );
+
     $ADMIN->add('zoom', new admin_category('zoom_category_recording', get_string('category_recording', 'local_zoomadmin')));
     $ADMIN->add(
         'zoom_category_recording',

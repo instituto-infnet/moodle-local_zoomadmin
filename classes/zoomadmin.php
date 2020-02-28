@@ -103,7 +103,7 @@ class zoomadmin {
             }
         }
 
-        if (isset($errormsg)) {
+        if (false && isset($errormsg)) {
             print_object(get_string('error_curl', 'local_zoomadmin', $errormsg));
             print_object((object) array(
                 'url' => $url,
@@ -405,9 +405,10 @@ class zoomadmin {
             foreach ($meetings as $meeting) {
                 if ($meeting->id == $meetingnumber) {
                     $pagedata->topic = $meeting->topic;
-                    $pagedata->host = $meeting->host;
+                    // $pagedata->host = $meeting->host;
                     break;
                 }
+                // print_object($meeting);
             }
 
             $pagedata->pagecourselink = $this->format_course_path_links(
@@ -594,6 +595,11 @@ class zoomadmin {
         return $data;
     }
 
+    public function get_participants_all_instances_report($meetinguuid) {
+        $data = $this->get_participants_all_instances_data($meetinguuid);
+        return $data;
+    }
+
     public function insert_recording_participant($uuid, $userid) {
         $data = $this->insert_recording_viewed_participant_data($uuid, $userid);
         $this->add_log(
@@ -767,7 +773,7 @@ class zoomadmin {
         $meetingdata = $this->request('past_meetings/' . $meetingid . '/instances');
 
         if (empty($meetingdata->meetings)) {
-            $occurrences[] = isset($meeting->id) ? $meeting : $this->request('meetings/' . $meeting);
+            $occurrences[] = isset($meeting->id) ? $meeting : $this->get_meeting_data($meeting);
         } else {
             foreach ($meetingdata->meetings as $occurrence) {
                 $occurrences[] = $this->get_meeting_occurence_data($occurrence->uuid);
@@ -775,6 +781,10 @@ class zoomadmin {
         }
 
         return $occurrences;
+    }
+
+    private function get_meeting_data($meetingnumber) {
+        return $this->request('meetings/' . $meetingnumber);
     }
 
     private function get_meeting_occurence_data($uuid) {
@@ -1205,13 +1215,7 @@ class zoomadmin {
     }
 
     private function get_participants_data($meetinguuid) {
-        global $USER;
-        $context = \context_system::instance();
-
-        $filteremail = (
-            !has_capability('local/zoomadmin:managezoom', $context) &&
-            strpos($USER->email, '@prof.infnet.edu.br') === false
-        ) ? $USER->email : null;
+        $filteremail = $this->get_filter_email_for_participants_report();
 
         $data = $this->get_meeting_occurence_data($meetinguuid);
         $data->host = $this->get_user($data->host_id);
@@ -1266,12 +1270,22 @@ class zoomadmin {
 
         $data->participants = $indexedparticipants;
         $data->hasdata = !empty($data->participants);
-
         if (!$data->hasdata) {
             $data->nodatamsg = get_string((isset($filteremail) ? 'report_no_permission' : 'report_no_data'), 'local_zoomadmin');
         }
 
         return $data;
+    }
+
+    private function get_filter_email_for_participants_report() {
+        global $USER;
+        $context = \context_system::instance();
+
+        return (
+            !has_capability('local/zoomadmin:managezoom', $context) &&
+            strpos($USER->email, '@prof.infnet.edu.br') === false &&
+            strpos($USER->email, '@infnet.edu.br') === false
+        ) ? $USER->email : null;
     }
 
     private function get_stored_participants_data($meetinguuid) {
@@ -1298,12 +1312,12 @@ class zoomadmin {
                     '(',
                     CAST(SUM(p.duration)/(
                         select MAX(p2.leavetime) - MIN(p2.jointime)
-                        from mdl_local_zoomadmin_participants p2
+                        from {local_zoomadmin_participants} p2
                         where p2.meetinguuid = p.meetinguuid
                             and p2.recording = 0
                     ) * 100 as UNSIGNED),
-                    ')',
-                    '%'
+                    '%',
+                    ')'
                 ) percent_duration,
                 CONCAT(CAST(AVG(p.attentiveness) as UNSIGNED), '%') avg_attentiveness
             from {local_zoomadmin_participants} p
@@ -1318,7 +1332,128 @@ class zoomadmin {
         return $DB->get_records_sql($sqlstring, array($meetinguuid));
     }
 
+    private function get_stored_all_participants_data($meetingnumber) {
+        global $DB;
+
+        $data = new \stdClass();
+
+        $sqlselectparticipantsonly = "
+            select distinct CONCAT_WS(
+                    '_',
+                    COALESCE(CONCAT(u.firstname, ' ', u.lastname), p.username),
+                    COALESCE(u.email, p.useremail)
+                ) user_key,
+                COALESCE(CONCAT(u.firstname, ' ', u.lastname), p.username) username,
+                COALESCE(u.email, p.useremail) email
+        ";
+
+        $sqlselectalldata = "
+            select distinct CONCAT_WS(
+                    '_',
+                    COALESCE(CONCAT(u.firstname, ' ', u.lastname), p.username),
+                    COALESCE(u.email, p.useremail),
+                    p.meetinguuid
+                ) user_key,
+                COALESCE(CONCAT(u.firstname, ' ', u.lastname), p.username) username,
+                COALESCE(u.email, p.useremail) email,
+                p.meetingnumber,
+                p.meetinguuid,
+                case
+                    when SUM(p.duration) > 0 then CEILING(SUM(p.duration)/60)
+                end sum_duration,
+                case
+                    when SUM(p.duration) > 0 then
+                        CAST(SUM(p.duration)/(
+                            select MAX(p2.leavetime) - MIN(p2.jointime)
+                            from {local_zoomadmin_participants} p2
+                            where p2.meetinguuid = p.meetinguuid
+                                and p2.recording = 0
+                        ) * 100 as UNSIGNED)
+                end percent_duration,
+                case
+                    when exists (
+                        select 1
+                        from {local_zoomadmin_participants} p2
+                        where p2.meetinguuid = p.meetinguuid
+                            and p2.username = p.username
+                            and p2.useremail = p.useremail
+                            and p2.recording = 1
+                    ) = 1 then 'Sim'
+                    else 'Não'
+                end accessed_recording
+        ";
+
+        $sqlfromgroup1 = "
+            from {user} u
+                join {role_assignments} ra on u.id = ra.userid
+                join {role} r on r.id = ra.roleid
+                    and r.archetype = 'student'
+                join {context} cx on ra.contextid = cx.id
+                    and cx.contextlevel = '50'
+                join {course_modules} cm on cx.instanceid = cm.course
+                join {modules} m on m.id = cm.module
+                    and m.name = 'page'
+                join {local_zoomadmin_recordpages} rp on cm.id = rp.pagecmid
+                left join {local_zoomadmin_participants} p on p.meetingnumber = rp.zoommeetingnumber
+                    and (
+                        u.email = p.useremail
+                        or CONCAT(u.firstname, ' ', u.lastname) = p.username
+                    )
+                where rp.zoommeetingnumber = ?
+            group by user_key
+            union
+        ";
+
+        $sqlfromgroup2 = "
+            from {local_zoomadmin_participants} p
+                left join (
+                    {local_zoomadmin_recordpages} rp
+                    join {course_modules} cm on cm.id = rp.pagecmid
+                    join {modules} m on m.id = cm.module
+                        and m.name = 'page'
+                    join {context} cx on cx.instanceid = cm.course
+                        and cx.contextlevel = '50'
+                    join {role_assignments} ra on ra.contextid = cx.id
+                    join {role} r on r.id = ra.roleid
+                        and r.archetype = 'student'
+                    join {user} u on u.id = ra.userid
+                ) on rp.zoommeetingnumber = p.meetingnumber
+                    and (
+                        u.email = p.useremail
+                        or CONCAT(u.firstname, ' ', u.lastname) = p.username
+                    )
+                where p.meetingnumber = ?
+            group by user_key
+            order by user_key
+        ";
+
+        $data->participants = $DB->get_records_sql(
+            $sqlselectparticipantsonly .
+            $sqlfromgroup1 .
+            $sqlselectparticipantsonly .
+            $sqlfromgroup2
+            ,
+            array($meetingnumber, $meetingnumber)
+        );
+
+        $data->participantsdata = $DB->get_records_sql(
+            $sqlselectalldata .
+            $sqlfromgroup1 .
+            $sqlselectalldata .
+            $sqlfromgroup2
+            ,
+            array($meetingnumber, $meetingnumber)
+        );
+
+        return $data;
+    }
+
     private function retrieve_participants_data($meetingdata) {
+        $retrieveduuids = $this->get_retrieved_participants_instances($meetingdata->id);
+        if (isset($retrieveduuids[$meetingdata->uuid])) {
+            return null;
+        }
+
         $data = new \stdClass();
         $data->meetinguuid = $meetingdata->uuid;
         $data->meetingnumber = $meetingdata->id;
@@ -1327,6 +1462,7 @@ class zoomadmin {
         $rowstoinsert = array();
 
         $participantsdata = $this->request('report/meetings/' . urlencode(urlencode($data->meetinguuid)) . '/participants');
+
 
         foreach ($participantsdata->participants as $participant) {
             $rowdata = clone $data;
@@ -1347,6 +1483,19 @@ class zoomadmin {
 
         return $rowstoinsert;
     }
+
+    private function get_retrieved_participants_instances($meetingnumber) {
+        global $DB;
+
+        $sqlstring = "
+            select distinct p.meetinguuid
+            from {local_zoomadmin_participants} p
+            where p.meetingnumber = ?
+        ";
+
+        return $DB->get_records_sql($sqlstring, array($meetingnumber));
+    }
+
 
     private function insert_participants_data($data) {
         global $DB;
@@ -1378,5 +1527,144 @@ class zoomadmin {
     private function get_moodle_user_data($userid) {
         global $DB;
         return $DB->get_record('user', array('id' => $userid));
+    }
+
+    private function get_participants_all_instances_data($meetingnumber) {
+        $filteremail = $this->get_filter_email_for_participants_report();
+        $meetingnumber = str_replace('-', '', $meetingnumber);
+
+        $data = $this->get_meeting_data($meetingnumber);
+        $data->host = $this->get_user($data->host_id);
+
+        $recordingpagedata = $this->get_recordings_page_data(array('meetingnumber' => $meetingnumber));
+        $recordingpagedata = reset($recordingpagedata);
+
+        $data->coursename = preg_replace("/\[[^\]]+\]/","",$recordingpagedata->coursename);
+        $data->catname = preg_replace("/\[[^\]]+\]/","",$recordingpagedata->catname);
+
+        $data->occurrences = array();
+
+        $timezone = $this->get_meeting_timezone($data);
+        $occurrences = $this->get_meeting_occurrences($meetingnumber);
+        foreach ($occurrences as $occurrence) {
+            $uuid = $occurrence->uuid;
+
+            $this->retrieve_participants_data($this->get_recording($uuid));
+
+            $occurrencedata = $this->get_meeting_occurence_data($uuid);
+            $meetingstarttime = (new \DateTime($occurrence->start_time))->setTimezone($timezone);
+            $occurrencedata->start_time_formatted = $meetingstarttime->format('d/m/Y<b\r/>H:i:s');
+
+            $data->occurrences[] = $occurrencedata;
+        }
+        $data->occurrences = $this->sort_meetings_by_start($data->occurrences);
+        $data->occurrencescount = sizeof($data->occurrences);
+        $data->totalcols = $data->occurrencescount + 5;
+
+        $participantsdata = $this->get_stored_all_participants_data($meetingnumber);
+
+        $data->participants = array();
+
+        $nonuniquefirstnames = $this->get_non_unique_first_names_from_course($meetingnumber);
+        $previousfirstname = '';
+        $backgroundclass = '';
+        foreach ($participantsdata->participants as $key => $participantdata) {
+            if (
+                (!isset($filteremail) || $participantdata->email === $filteremail)
+                && (!isset($participantdata->email) || $participantdata->email !== $data->host->email)
+            ) {
+                $participantdata->occurrences = array();
+                $participantdata->attended = 0;
+                $participantdata->recording = 0;
+                $participantdata->avg_duration = 0;
+
+                $firstname = str_word_count(strtolower($this->remove_accents($participantdata->username)), 1)[0];
+                if (in_array($firstname, $nonuniquefirstnames) || ($firstname !== $previousfirstname)) {
+                    $backgroundclass = ($backgroundclass === '') ? 'off-color' : '';
+                }
+                $participantdata->backgroundclass = $backgroundclass;
+                $previousfirstname = $firstname;
+
+                foreach ($data->occurrences as $occurrence) {
+                    $datakey = $key . '_' . $occurrence->uuid;
+                    if (isset($participantsdata->participantsdata[$datakey])) {
+                        $participantoccurrencedata = $participantsdata->participantsdata[$datakey];
+                        $participantoccurrencedata->displaytext = '';
+
+                        if ($participantoccurrencedata->sum_duration) {
+                            $participantoccurrencedata->displaytext = $participantoccurrencedata->sum_duration . ' (' . $participantoccurrencedata->percent_duration . '%)';
+
+                            $participantdata->attended++;
+                            $participantdata->avg_duration += $participantoccurrencedata->percent_duration;
+                        }
+
+                        if ($participantoccurrencedata->accessed_recording === 'Sim') {
+                            $participantdata->recording++;
+                            $participantoccurrencedata->displaytext .= $participantoccurrencedata->accessed_recording === 'Sim' ? ' <span class="recording-indicator">G</span>' : '';
+                        }
+                    } else {
+                        $participantoccurrencedata = new \stdClass();
+                        $participantoccurrencedata->displaytext = '';
+                    }
+
+                    $participantdata->occurrences[] = $participantoccurrencedata;
+                }
+
+                $participantdata->avg_duration = ($participantdata->attended) ? round($participantdata->avg_duration / $participantdata->attended) : 0;
+                $participantdata->attended_or_recording = $participantdata->attended + $participantdata->recording;
+                $data->participants[] = $participantdata;
+            }
+        }
+
+        $data->hasdata = !empty($data->participants);
+        if (!$data->hasdata) {
+            $data->nodatamsg = get_string((isset($filteremail) ? 'report_no_permission' : 'report_no_data'), 'local_zoomadmin');
+        }
+
+        return $data;
+    }
+
+    /**
+     * Replace accented characters with non accented
+     *
+     * @param $str
+     * @return mixed
+     * @link http://myshadowself.com/coding/php-function-to-convert-accented-characters-to-their-non-accented-equivalant/
+     */
+    private function remove_accents($str) {
+        $a = array('À', 'Á', 'Â', 'Ã', 'Ä', 'Å', 'Æ', 'Ç', 'È', 'É', 'Ê', 'Ë', 'Ì', 'Í', 'Î', 'Ï', 'Ð', 'Ñ', 'Ò', 'Ó', 'Ô', 'Õ', 'Ö', 'Ø', 'Ù', 'Ú', 'Û', 'Ü', 'Ý', 'ß', 'à', 'á', 'â', 'ã', 'ä', 'å', 'æ', 'ç', 'è', 'é', 'ê', 'ë', 'ì', 'í', 'î', 'ï', 'ñ', 'ò', 'ó', 'ô', 'õ', 'ö', 'ø', 'ù', 'ú', 'û', 'ü', 'ý', 'ÿ', 'Ā', 'ā', 'Ă', 'ă', 'Ą', 'ą', 'Ć', 'ć', 'Ĉ', 'ĉ', 'Ċ', 'ċ', 'Č', 'č', 'Ď', 'ď', 'Đ', 'đ', 'Ē', 'ē', 'Ĕ', 'ĕ', 'Ė', 'ė', 'Ę', 'ę', 'Ě', 'ě', 'Ĝ', 'ĝ', 'Ğ', 'ğ', 'Ġ', 'ġ', 'Ģ', 'ģ', 'Ĥ', 'ĥ', 'Ħ', 'ħ', 'Ĩ', 'ĩ', 'Ī', 'ī', 'Ĭ', 'ĭ', 'Į', 'į', 'İ', 'ı', 'Ĳ', 'ĳ', 'Ĵ', 'ĵ', 'Ķ', 'ķ', 'Ĺ', 'ĺ', 'Ļ', 'ļ', 'Ľ', 'ľ', 'Ŀ', 'ŀ', 'Ł', 'ł', 'Ń', 'ń', 'Ņ', 'ņ', 'Ň', 'ň', 'ŉ', 'Ō', 'ō', 'Ŏ', 'ŏ', 'Ő', 'ő', 'Œ', 'œ', 'Ŕ', 'ŕ', 'Ŗ', 'ŗ', 'Ř', 'ř', 'Ś', 'ś', 'Ŝ', 'ŝ', 'Ş', 'ş', 'Š', 'š', 'Ţ', 'ţ', 'Ť', 'ť', 'Ŧ', 'ŧ', 'Ũ', 'ũ', 'Ū', 'ū', 'Ŭ', 'ŭ', 'Ů', 'ů', 'Ű', 'ű', 'Ų', 'ų', 'Ŵ', 'ŵ', 'Ŷ', 'ŷ', 'Ÿ', 'Ź', 'ź', 'Ż', 'ż', 'Ž', 'ž', 'ſ', 'ƒ', 'Ơ', 'ơ', 'Ư', 'ư', 'Ǎ', 'ǎ', 'Ǐ', 'ǐ', 'Ǒ', 'ǒ', 'Ǔ', 'ǔ', 'Ǖ', 'ǖ', 'Ǘ', 'ǘ', 'Ǚ', 'ǚ', 'Ǜ', 'ǜ', 'Ǻ', 'ǻ', 'Ǽ', 'ǽ', 'Ǿ', 'ǿ', 'Ά', 'ά', 'Έ', 'έ', 'Ό', 'ό', 'Ώ', 'ώ', 'Ί', 'ί', 'ϊ', 'ΐ', 'Ύ', 'ύ', 'ϋ', 'ΰ', 'Ή', 'ή');
+        $b = array('A', 'A', 'A', 'A', 'A', 'A', 'AE', 'C', 'E', 'E', 'E', 'E', 'I', 'I', 'I', 'I', 'D', 'N', 'O', 'O', 'O', 'O', 'O', 'O', 'U', 'U', 'U', 'U', 'Y', 's', 'a', 'a', 'a', 'a', 'a', 'a', 'ae', 'c', 'e', 'e', 'e', 'e', 'i', 'i', 'i', 'i', 'n', 'o', 'o', 'o', 'o', 'o', 'o', 'u', 'u', 'u', 'u', 'y', 'y', 'A', 'a', 'A', 'a', 'A', 'a', 'C', 'c', 'C', 'c', 'C', 'c', 'C', 'c', 'D', 'd', 'D', 'd', 'E', 'e', 'E', 'e', 'E', 'e', 'E', 'e', 'E', 'e', 'G', 'g', 'G', 'g', 'G', 'g', 'G', 'g', 'H', 'h', 'H', 'h', 'I', 'i', 'I', 'i', 'I', 'i', 'I', 'i', 'I', 'i', 'IJ', 'ij', 'J', 'j', 'K', 'k', 'L', 'l', 'L', 'l', 'L', 'l', 'L', 'l', 'l', 'l', 'N', 'n', 'N', 'n', 'N', 'n', 'n', 'O', 'o', 'O', 'o', 'O', 'o', 'OE', 'oe', 'R', 'r', 'R', 'r', 'R', 'r', 'S', 's', 'S', 's', 'S', 's', 'S', 's', 'T', 't', 'T', 't', 'T', 't', 'U', 'u', 'U', 'u', 'U', 'u', 'U', 'u', 'U', 'u', 'U', 'u', 'W', 'w', 'Y', 'y', 'Y', 'Z', 'z', 'Z', 'z', 'Z', 'z', 's', 'f', 'O', 'o', 'U', 'u', 'A', 'a', 'I', 'i', 'O', 'o', 'U', 'u', 'U', 'u', 'U', 'u', 'U', 'u', 'U', 'u', 'A', 'a', 'AE', 'ae', 'O', 'o', 'Α', 'α', 'Ε', 'ε', 'Ο', 'ο', 'Ω', 'ω', 'Ι', 'ι', 'ι', 'ι', 'Υ', 'υ', 'υ', 'υ', 'Η', 'η');
+        return str_replace($a, $b, $str);
+    }
+
+    private function get_non_unique_first_names_from_course($meetingnumber) {
+        global $DB;
+
+        $sqlstring = "
+            select LOWER(SUBSTRING_INDEX(u.firstname, ' ', 1)) firstword
+            from {local_zoomadmin_recordpages} rp
+                join {course_modules} cm on cm.id = rp.pagecmid
+                join {modules} m on m.id = cm.module
+                    and m.name = 'page'
+                join {context} cx on cx.instanceid = cm.course
+                    and cx.contextlevel = '50'
+                join {role_assignments} ra on ra.contextid = cx.id
+                join {role} r on r.id = ra.roleid
+                    and r.archetype = 'student'
+                join {user} u on u.id = ra.userid
+            where rp.zoommeetingnumber = ?
+            group by firstword
+            having COUNT(1) > 1
+            order by u.firstname
+        ";
+
+        $names = $DB->get_records_sql($sqlstring, array($meetingnumber));
+
+        $nameswithoutaccent = array();
+        foreach ($names as $name) {
+            $nameswithoutaccent[] = $this->remove_accents($name->firstword);
+        }
+
+        return $nameswithoutaccent;
     }
 }

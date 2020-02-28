@@ -88,6 +88,15 @@ class manage_zoom implements \renderable/*, \templatable*/ {
     }
 
     /**
+     * Carrega a lista de participantes de todas as sessões de uma reunião
+     * recorrente e envia ao template, para serem exibidas na tela.
+     * @return \stdClass Dados a serem utilizados pelo template.
+     */
+    public function export_participants_all_instances_for_template($renderer, $page) {
+        return $this->zoomadmin->get_participants_all_instances_report($page->params['meetingnumber']);
+    }
+
+    /**
      * Obtém a lista de usuários do Zoom e envia ao template,
      * para ser exibida na tela.
      * @return \stdClass Dados a serem utilizados pelo template.

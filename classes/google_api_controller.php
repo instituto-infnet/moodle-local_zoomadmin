@@ -162,6 +162,10 @@ class google_api_controller {
         $parentid = ROOT_FOLDER_ID;
 
         foreach ($foldernamestree as $foldername) {
+            if (is_null($foldername)) {
+                continue;
+            }
+
             $folder = $this->get_folder_by_name_and_parent($foldername, $parentid);
 
             if (!isset($folder)) {

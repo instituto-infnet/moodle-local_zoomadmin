@@ -115,7 +115,27 @@ function xmldb_local_zoomadmin_upgrade($oldversion) {
 
 		// zoomadmin savepoint reached.
 		upgrade_plugin_savepoint(true, 2019030700, 'local', 'zoomadmin');
-	}
+	} else if ($oldversion < 2019032800) {
+
+        // Changing nullability of field userid on table local_zoomadmin_participants to null.
+        $table = new xmldb_table('local_zoomadmin_participants');
+        $field = new xmldb_field('userid', XMLDB_TYPE_CHAR, '255', null, null, null, null, 'useruuid');
+
+        // Launch change of nullability for field userid.
+        $dbman->change_field_notnull($table, $field);
+
+		// Define index uq_meetinguuid_jointime_userid (unique) to be added to local_zoomadmin_participants.
+		$index = new xmldb_index('uq_meetinguuid_jointime_userid', XMLDB_INDEX_UNIQUE, ['meetinguuid', 'jointime', 'userid']);
+
+		// Conditionally launch add index uq_meetinguuid_jointime_userid.
+		if (!$dbman->index_exists($table, $index)) {
+			$dbman->add_index($table, $index);
+		}
+
+        // Zoomadmin savepoint reached.
+        upgrade_plugin_savepoint(true, 2019032800, 'local', 'zoomadmin');
+    }
+
 
 
 

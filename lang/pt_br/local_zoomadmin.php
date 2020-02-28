@@ -121,6 +121,7 @@ $string['other'] = 'Outras configurações';
 $string['page_cm_id'] = 'ID do módulo de página do Moodle';
 $string['page_cm_id_form_description'] = 'Obtido no final da barra de endereço do navegador ao visualizar a página.<br />Por exemplo: https://lms.infnet.edu.br/moodle/mod/page/view.php?id=<b><i>123456</i></b>';
 $string['participants'] = 'Lista de presença';
+$string['participants_all_instances'] = 'Lista de presença (todas as sessões)';
 $string['pluginname'] = 'Administração do Zoom';
 $string['pmi'] = 'ID de reunião pessoal';
 $string['profile'] = 'Informações de perfil';

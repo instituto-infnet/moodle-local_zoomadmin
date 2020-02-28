@@ -16,13 +16,13 @@
         <INDEX NAME="zoommeetingnumber" UNIQUE="true" FIELDS="zoommeetingnumber"/>
       </INDEXES>
     </TABLE>
-    <TABLE NAME="local_zoomadmin_participants">
+    <TABLE NAME="local_zoomadmin_participants" COMMENT="Participants data from Zoom meetings">
       <FIELDS>
         <FIELD NAME="id" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="true"/>
         <FIELD NAME="meetingnumber" TYPE="int" LENGTH="11" NOTNULL="true" SEQUENCE="false"/>
         <FIELD NAME="meetinguuid" TYPE="char" LENGTH="255" NOTNULL="true" SEQUENCE="false"/>
         <FIELD NAME="useruuid" TYPE="char" LENGTH="255" NOTNULL="false" SEQUENCE="false"/>
-        <FIELD NAME="userid" TYPE="char" LENGTH="255" NOTNULL="false" SEQUENCE="false"/>
+        <FIELD NAME="userid" TYPE="char" LENGTH="255" NOTNULL="true" SEQUENCE="false"/>
         <FIELD NAME="username" TYPE="char" LENGTH="255" NOTNULL="true" SEQUENCE="false"/>
         <FIELD NAME="useremail" TYPE="char" LENGTH="255" NOTNULL="false" SEQUENCE="false"/>
         <FIELD NAME="jointime" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="false"/>
@@ -34,6 +34,9 @@
       <KEYS>
         <KEY NAME="primary" TYPE="primary" FIELDS="id"/>
       </KEYS>
+      <INDEXES>
+        <INDEX NAME="uq_meetinguuid_jointime_userid" UNIQUE="true" FIELDS="meetinguuid, jointime, userid" COMMENT="Only one user and join time allowed per meeting instance"/>
+      </INDEXES>
     </TABLE>
   </TABLES>
 </XMLDB>
