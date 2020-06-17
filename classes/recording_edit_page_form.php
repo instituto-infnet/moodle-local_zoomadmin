@@ -78,13 +78,6 @@ class recording_edit_page_form extends moodleform {
             null,
             'maxlength="12"'
         );
-        $mform->addRule(
-            'zoommeetingnumber',
-            null,
-            'required',
-            null,
-            'client'
-        );
         $this->_form->setType('zoommeetingnumber', PARAM_INT);
 
         $mform->addElement(
@@ -99,6 +92,7 @@ class recording_edit_page_form extends moodleform {
             null,
             'maxlength="11"'
         );
+        $this->_form->setType('pagecmid', PARAM_INT);
         $mform->addRule(
             'pagecmid',
             null,
@@ -106,7 +100,6 @@ class recording_edit_page_form extends moodleform {
             null,
             'client'
         );
-        $this->_form->setType('pagecmid', PARAM_INT);
 
         if ($action === 'send_recording_to_google_drive') {
             $mform->addElement(
@@ -116,10 +109,20 @@ class recording_edit_page_form extends moodleform {
             );
 
             $this->add_action_buttons(true, get_string('send_recording_to_google_drive', 'local_zoomadmin'));
-        } else if ($action === 'create') {
-            $this->add_action_buttons(true, get_string('add_recording_page', 'local_zoomadmin'));
         } else {
-            $this->add_action_buttons();
+            $mform->addRule(
+                'zoommeetingnumber',
+                null,
+                'required',
+                null,
+                'client'
+            );
+
+            if ($action === 'create') {
+                $this->add_action_buttons(true, get_string('add_recording_page', 'local_zoomadmin'));
+            } else {
+                $this->add_action_buttons();
+            }
         }
     }
 }

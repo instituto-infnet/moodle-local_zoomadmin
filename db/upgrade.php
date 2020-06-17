@@ -124,6 +124,7 @@ function xmldb_local_zoomadmin_upgrade($oldversion) {
         // Launch change of nullability for field userid.
         $dbman->change_field_notnull($table, $field);
 
+		/*
 		// Define index uq_meetinguuid_jointime_userid (unique) to be added to local_zoomadmin_participants.
 		$index = new xmldb_index('uq_meetinguuid_jointime_userid', XMLDB_INDEX_UNIQUE, ['meetinguuid', 'jointime', 'userid']);
 
@@ -131,6 +132,7 @@ function xmldb_local_zoomadmin_upgrade($oldversion) {
 		if (!$dbman->index_exists($table, $index)) {
 			$dbman->add_index($table, $index);
 		}
+		//*/
 
         // Zoomadmin savepoint reached.
         upgrade_plugin_savepoint(true, 2019032800, 'local', 'zoomadmin');

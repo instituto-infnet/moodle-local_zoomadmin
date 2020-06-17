@@ -56,7 +56,8 @@ if ($mform->is_cancelled()) {
 
 echo $OUTPUT->header() . $OUTPUT->heading($title);
 
-if ($formdata = $mform->get_data()) {
+$formdata = $mform->get_data();
+if ($formdata && ($formdata->zoommeetingnumber || $formdata->pagecmid)) {
     global $DB;
 
     $task = new local_zoomadmin\task\send_course_recordings_to_google_drive_task();
