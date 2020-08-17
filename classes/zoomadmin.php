@@ -1259,22 +1259,25 @@ class zoomadmin {
 
     // Esta é a principal função para gravação dos arquivos no Google Drive, logicamente ela chama outras que fazem algumas tarefas específicas
     // classe google controler foi criada por nós e faz a interface com a API do Google; esta classe está em outro arquivo.
+    // Ela pode ser chamada sem o Google Controler na chamada
     private function create_google_drive_files($meetingrecordings, $pagedata, $googlecontroller = null) {
-        $files = $meetingrecordings->recording_files;
+        $files = $meetingrecordings->recording_files; // para facilitar a legibilidade do código
         $filecount = count($files);
 
         if ($filecount === 0) {
-            return 'error_no_recordings_found';
+            return 'error_no_recordings_found'; // mensagem está em inglês mas formos nós que a criamos
         }
 
         $drivefiles = array();
 
         if (!isset($googlecontroller)) {
-            $googlecontroller = new \google_api_controller();
+            $googlecontroller = new \google_api_controller(); // caso não esteja instanciado ainda do googlecontroller, instanciamos a classe de controlador do Google Controller
         }
 
+        // Vai buscar a pasta onde tem que gravar os arquivos no Google Drive
         $folder = $this->get_google_drive_folder($googlecontroller, $pagedata);
 
+        // Verfifica os arquivos que estão lá dentro da pasta
         $folderfiles = $googlecontroller->get_google_drive_files_from_folder($folder); // Note que já é no Google, via API
         $filenames = array_column($folderfiles, 'name');
 
@@ -1293,12 +1296,20 @@ class zoomadmin {
                 $drivefile = $folderfiles[$filekey];
             }
 
+            // A API do Zoom não coloca o uuid em cada arquivo (cada arquivo está no $files), então a gente lê para colocar no objeto file para facilitar
+            // No PHP a gente pode criar uma propriedade para uma classe livremente, como fazemos na linha a seguir, em que file ganha uma nova propriedade
+            // Usaremos isso para achar o link dentro da página do Moodle, para então o link ser substituído (procuramos o uuid na página)
             $file->uuid = $meetingrecordings->uuid;
+            
+            // Abaixo troca o link com uma outra funcao que esta neste arquivo aqui
             $drivefile->link_replaced_message = $this->replace_recordings_page_links($pagedata, $file, $drivefile->webViewLink);
+            
+            // Neste objeto drivefile fica entao a coisa completa: tudo do google drive e tudo do zoom
             $drivefile->zoomfile = $file;
             $drivefiles[] = $drivefile;
         }
 
+        // retorna para quem chamou o vetor com todos os arquivos da reunião
         return $drivefiles;
     }
 
