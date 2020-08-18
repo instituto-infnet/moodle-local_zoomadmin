@@ -23,6 +23,8 @@
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
 */
 
+// todas as classes desse plugin fazem parte desse namespace e essas classes podem ser chamadas
+// diretamente pelo nome
 namespace local_zoomadmin;
 
 defined('MOODLE_INTERNAL') || die();
@@ -1313,13 +1315,14 @@ class zoomadmin {
         return $drivefiles;
     }
 
+    // retorna o folder para gravação ou leitura no Google Drive    
     private function get_google_drive_folder($googlecontroller, $pagedata) {
         $foldernamestree = array(
-            $pagedata->cat4name,
-            $pagedata->cat3name,
-            $pagedata->cat2name,
-            $pagedata->catname,
-            $pagedata->coursename
+            $pagedata->cat4name,   // escola para graduações e pós live para as pós live
+            $pagedata->cat3name,   // programa
+            $pagedata->cat2name,   // classe
+            $pagedata->catname,    // bloco
+            $pagedata->coursename  // curso
         );
 
         $folder = $googlecontroller->get_google_drive_folder($foldernamestree);
@@ -1327,6 +1330,7 @@ class zoomadmin {
         return $folder;
     }
 
+    // monta os metadados do arquivo que vai ser criado no Google Drive, preparando os dados
     private function get_file_data_for_google_drive($file, $pagedata) {
         $filetypes = array(
             'MP4' => array(
@@ -1343,11 +1347,14 @@ class zoomadmin {
             )
         );
 
+        // Comandos para montar o nome do arquivo e o objeto completo com os metadados
         $type = $file->file_type;
         $typevalues = $filetypes[$type];
 
         $filedata = array(
             'id' => $file->id,
+            // aqui montamos o nome seguindo uma lógica que facilita a organização no Google Drive e também a compreensão do aluno que acessa o arquivo
+            // o nome fica bem descritivo, com data, classe, disciplina etc.
             'name' => $file->recording_start_formatted_for_download .
                 ' - ' .
                 $pagedata->coursename .
@@ -1359,11 +1366,13 @@ class zoomadmin {
             'mime_type' => $typevalues['mime_type'],
             'file_size' => $file->file_size
         );
-
+        // retorna os metadados do arquivo, para ele então ser criado no Google Drive
         return $filedata;
     }
 
+    // Troca o link na página do curso, para acesso dos alunos
     private function replace_recordings_page_links($pagedata, $zoomfile, $driveurl) {
+        // Expressao regular para trocar o link do zoom pelo link do drive
         $replacepattern = "/(" .
             preg_quote("data-uuid=\"{$zoomfile->uuid}\"", "/") .
             ".*?" .
@@ -1385,8 +1394,11 @@ class zoomadmin {
             )
         );
 
+        // Atualiza a página no banco de dados no Moodle chamando a função update_page_content, 
+        // que está mais em cima, que basicamente troca o conteúdo da página que estava no banco por um novo
         $pageupdated = $this->update_page_content($pagedata, $newcontent);
 
+        // Retorna para o log do Zoom a atualização feita (ou não)
         if ($pageupdated === true) {
             $recordingpageurl = new \moodle_url('/mod/page/view.php', array('id' => $pagedata->cmid));
             return get_string('recordings_url_replaced_in_page', 'local_zoomadmin', $recordingpageurl->out());
@@ -1395,35 +1407,52 @@ class zoomadmin {
         }
     }
 
+    // Esta função pega os dados do relatório de participantes em uma ocrrência de reunião da API do Zoom e insere na nossa tabela de participantes, 
+    // que está no banco de dados do Moodle. tem uma outra, "get_all", que roda essa sucessivamente para todas as ocorrências
     private function get_participants_data($meetinguuid) {
+
+        // chama outra função que está neste arquivo aqui, filtrando conforme o formato do e-mail
+        // se o usuário do moodle tem e-mail @prof ou @infnet ele consegue ver a participação de todos; caso contrário só a própria
         $filteremail = $this->get_filter_email_for_participants_report();
 
+        // chama uma função que pega os metadados descritivos da ocorrência da reunião a partir da API do Zoom
         $data = $this->get_meeting_occurence_data($meetinguuid);
+
+        // chama o get_user para pegar os dados do anfitrião (host) a partir da API do Zoom
+        // usamos isso no relatório, para filtrar o professor da lista de participantes e para exibir seu nome
         $data->host = $this->get_user($data->host_id);
 
         $timezone = $this->get_meeting_timezone($data);
+
+        // adiciona nos metadados da reunião ($data) as informações de data/hora de início e término formatadas
+        // será usado depois para exibição
         $meetingstarttime = (new \DateTime($data->start_time))->setTimezone($timezone);
         $data->start_time_formatted = $meetingstarttime->format('d/m/Y H:i:s');
         $meetingendtime = (new \DateTime($data->end_time))->setTimezone($timezone);
         $data->end_time_formatted = $meetingendtime->format('H:i:s');
 
+        // pega os participantes da reunião do nosso banco
         $data->participants = $this->get_stored_participants_data($meetinguuid);
 
+        // se ainda não tem participantes, pega os participantes do Zoom
         if (empty($data->participants)) {
-            $this->retrieve_participants_data($data);
+            $this->retrieve_participants_data($data); // esta função retrive lê da API e insere no nosso banco
             $data->participants = $this->get_stored_participants_data($meetinguuid);
         }
 
         $indexedparticipants = array();
 
+        // percorre os dados já no nosso banco para mostrar no relatório de presença
+        // na função retrive a gente trabalha um pouquinho as informações
         foreach ($data->participants as $participant) {
             if (
-                (!isset($filteremail) || $participant->useremail === $filteremail)
-                && (!isset($participant->useremail) || $participant->useremail !== $data->host->email)
+                (!isset($filteremail) || $participant->useremail === $filteremail) // filtro de permissão
+                && (!isset($participant->useremail) || $participant->useremail !== $data->host->email) // não mostra o anfitrião na lista
             ) {
-                $participant->viewed_recording = false;
-                $participant->session_participant = false;
+                $participant->viewed_recording = false; // assistiu gravado é tornado falso
+                $participant->session_participant = false; // assistiu ao vivo é tornado falso
 
+                // O joinleavetimes é uma string com vírgulas, o explode separa em um array usando as vírgulas como separadores
                 $participant->join_leave_times = explode(',', $participant->join_leave_times);
                 foreach ($participant->join_leave_times as $index => $times) {
                     if (strpos($times, '*') !== false) {
@@ -1432,17 +1461,17 @@ class zoomadmin {
                         $participant->session_participant = true;
                     }
 
-                    $participant->join_leave_times[$index] = new \stdClass();
+                    $participant->join_leave_times[$index] = new \stdClass(); // classe genérica para um objeto vazio
                     $participant->join_leave_times[$index]->times = $times;
                 }
 
-                if (
+                if ( // quando assiste à aula gravada e não assiste à aula ao vivo, alguns dados não teremos
                     $participant->viewed_recording === true
                     && $participant->session_participant === false
                 ) {
                     $participant->sum_duration = 'N/D';
                     $participant->percent_duration = '';
-                    $participant->avg_attentiveness = 'N/D';
+                    $participant->avg_attentiveness = 'N/D'; // Acabamos tirando do relatório esse dado de atenção
                 }
 
                 $indexedparticipants[] = $participant;
@@ -1450,7 +1479,7 @@ class zoomadmin {
         }
 
         $data->participants = $indexedparticipants;
-        $data->hasdata = !empty($data->participants);
+        $data->hasdata = !empty($data->participants); //verifica se está vazio ou não a lista de participantes e retorna mensagem se esitver
         if (!$data->hasdata) {
             $data->nodatamsg = get_string((isset($filteremail) ? 'report_no_permission' : 'report_no_data'), 'local_zoomadmin');
         }
@@ -1458,20 +1487,30 @@ class zoomadmin {
         return $data;
     }
 
+    // se o usuário do moodle tem e-mail @prof ou @infnet ele consegue ver a participação de todos; caso contrário só a própria
+    // a função retorna o e-mail que vai ser usado para filtrar na função que está acima
     private function get_filter_email_for_participants_report() {
+        // este comando "coloca na memória" a variável, ela tem que ser chamada assim para ser usada
         global $USER;
+        
+        // a contra-barra nome é como, no PHP, chamamos uma classe que não faz parte do namespace da classe que estamos usando
+        // e esta classe é do Moodle
         $context = \context_system::instance();
 
         return (
             !has_capability('local/zoomadmin:managezoom', $context) &&
             strpos($USER->email, '@prof.infnet.edu.br') === false &&
             strpos($USER->email, '@infnet.edu.br') === false
-        ) ? $USER->email : null;
+        ) ? $USER->email : null; // quando tem a capability ou é @prof ou é @infnet, retorna null pois não filtra os emails, mostrará todos
     }
 
+    // consulta direta do SQL que traz os dados do banco da nossa tabela
+    // no moodle todas as tabelas são prefixadas com uma string definiada na instalação do moodle
+    // colocamos o nome das tabelas entre chaves pois assim o Moodle sabe que tem que incluir o prefixo determinado na instalação
+    // além disso, assim como o nome das classes, o nome das tabelas têm o tipo do módulo _ o nome do módulo em si. Neste caso local_zoomadmin_nome da tabela
     private function get_stored_participants_data($meetinguuid) {
         global $DB;
-
+        // É um select relativamente simples, apenas coletando, agrupando e nomeando dados de uma mesma tabela
         $sqlstring = "
             select p.id,
                 p.username,
@@ -1510,14 +1549,23 @@ class zoomadmin {
                 p.jointime
         ";
 
+        // chama o objeto global DB executando a query e retornando o seu resultado
+        // uma prática que temos feito é que todos os acessos ao banco colocamos coisas isoladas, e aí trabalhamos os dados em outro lugar
+        // as consultas então ficam sempre separaas em funções só dela
         return $DB->get_records_sql($sqlstring, array($meetinguuid));
     }
 
+    // pega os resultados do banco para todas as reuniões daquela disciplina
     private function get_stored_all_participants_data($meetingnumber) {
         global $DB;
 
         $data = new \stdClass();
 
+        // a query pega todos os participantes, mesmo que não tenham assistido a aula alguma
+        // montado concatenando a seguir
+        // concatena com underscore, suando uma função do MySQL
+
+        // esta primeira não pega nada do Zoom, só pega do Moodle os participantes do curso
         $sqlselectparticipantsonly = "
             select distinct CONCAT_WS(
                     '_',
@@ -1528,6 +1576,7 @@ class zoomadmin {
                 COALESCE(u.email, p.useremail) email
         ";
 
+        // pega dados do zoom, que já estão no nosso banco - mas não diretamente da API
         $sqlselectalldata = "
             select distinct CONCAT_WS(
                     '_',
@@ -1608,6 +1657,7 @@ class zoomadmin {
             order by user_key
         ";
 
+        // aqui é que efetivamente monta a consulta primeiro de quem é participante no curso a partir do Moodle
         $data->participants = $DB->get_records_sql(
             $sqlselectparticipantsonly .
             $sqlfromgroup1 .
@@ -1617,6 +1667,7 @@ class zoomadmin {
             array($meetingnumber, $meetingnumber)
         );
 
+        // aqui já pega mais dados que estavam no banco e vieram do Zoom
         $data->participantsdata = $DB->get_records_sql(
             $sqlselectalldata .
             $sqlfromgroup1 .
@@ -1629,42 +1680,55 @@ class zoomadmin {
         return $data;
     }
 
+    // Esta é a função que vai na API e faz a gravação dos seus dados no banco
+    // É aqui que temos um potencial bug de não pegar todas as páginas de dados
+    // usamos um endpoint que não é o mesmo do dashboard que acessamos manualmente no Zoom
     private function retrieve_participants_data($meetingdata) {
+        
+        // no meeting data temos todas as ocorrências daquela reunião; pode ser que algumas já tenham sido importadas para o banco
+        // as que já tiverem sido gravadas no banco; como os dados são do registro ao vivo, eles não mudam depois
         $retrieveduuids = $this->get_retrieved_participants_instances($meetingdata->id);
         if (isset($retrieveduuids[$meetingdata->uuid])) {
             return null;
         }
 
-        $data = new \stdClass();
-        $data->meetinguuid = $meetingdata->uuid;
-        $data->meetingnumber = $meetingdata->id;
+        $data = new \stdClass(); // cria uma nova variável usando classe genérica
+        $data->meetinguuid = $meetingdata->uuid; // este é o número da ocorrência 
+        $data->meetingnumber = $meetingdata->id; // este é o número da reunião, que tipicamente tem várias ocorrências
         $data->recording = 0;
 
-        $rowstoinsert = array();
+        $rowstoinsert = array(); // declarando um array vazio
 
+        // essa função request nós criamos aqui, ela é uma função básica para receber um endpoint e chamar a API
+        // pegamos o endpoint report/meetings para o meetinguuid selecionado
+        // para lidarmos com as várias páginas do relatório, teríamos que aqui incluir um loop para passar por todas as páginas
+        // para ler tudo e fazer uma concatenação
         $participantsdata = $this->request('report/meetings/' . urlencode(urlencode($data->meetinguuid)) . '/participants');
 
-
+        // Lemos e gravamos no banco, sem tratar, os dados como vieram da API
         foreach ($participantsdata->participants as $participant) {
             $rowdata = clone $data;
 
-            $rowdata->useruuid = $participant->id;
+            $rowdata->useruuid = $participant->id; // é o id deste participante nesta reunião, não usamos para nada, só guardamos
             $rowdata->username = $participant->name;
             $rowdata->useremail = $participant->user_email;
             $rowdata->jointime = strtotime($participant->join_time);
             $rowdata->leavetime = strtotime($participant->leave_time);
             $rowdata->duration = $participant->duration;
             $rowdata->attentiveness = (double) str_replace('%', '', $participant->attentiveness_score);
-            $rowdata->userid = $participant->user_id;
+            $rowdata->userid = $participant->user_id; // e o id do usuário do Zoom
 
             $rowstoinsert[] = $rowdata;
         }
 
+        // insere no banco, chamando uma função para tal
         $this->insert_participants_data($rowstoinsert);
 
+        // retorna isso mas achamos que na prática não estamos usando hoje em dia, depois que adaptamos para ler também acessos a aulas gravadas
         return $rowstoinsert;
     }
 
+    // diz quais reuniões já foram gravadas no banco do zoom antes, para que não façamos a leitura da API de novo desnecessariamente
     private function get_retrieved_participants_instances($meetingnumber) {
         global $DB;
 
@@ -1677,13 +1741,15 @@ class zoomadmin {
         return $DB->get_records_sql($sqlstring, array($meetingnumber));
     }
 
-
+    // faz a query de insert; separada para que todos os acessos ao banco fiquem isolados
     private function insert_participants_data($data) {
         global $DB;
 
         $DB->insert_records('local_zoomadmin_participants', $data);
     }
 
+    // insere o dado de acesso a aulas gravadas
+    // esta função é chamada da página via JavaScript por meio de um Webservice (é um Ajax...)
     private function insert_recording_viewed_participant_data($uuid, $userid) {
         $data = new \stdClass();
 
@@ -1697,7 +1763,7 @@ class zoomadmin {
         $data->jointime = time();
         $data->leavetime = $data->jointime;
         $data->duration = 0;
-        $data->userid = $userid;
+        $data->userid = $userid; // neste caso aqui é o usuário do Moodle, atenção.
         $data->recording = 1;
 
         $this->insert_participants_data([$data]);
@@ -1705,11 +1771,15 @@ class zoomadmin {
         return $data;
     }
 
+    // Traz os dados do usuário do Moodle, possivelmente usado em mais de um lugar
     private function get_moodle_user_data($userid) {
         global $DB;
         return $DB->get_record('user', array('id' => $userid));
     }
 
+    // É o relatório de presença da disciplina inteira
+    // esta funcao tem um bom trabalho para tentar agrupar usuários que não são logados no zoom
+    // poderia ser agrupado em uma função separada e também poderia ser tornado irrelevante se nós tornarmos os usuários do Zoom logados obrigatoriamente
     private function get_participants_all_instances_data($meetingnumber) {
         $filteremail = $this->get_filter_email_for_participants_report();
         $meetingnumber = str_replace('-', '', $meetingnumber);
@@ -1760,6 +1830,8 @@ class zoomadmin {
                 $participantdata->avg_duration = 0;
 
                 $firstname = str_word_count(strtolower($this->remove_accents($participantdata->username)), 1)[0];
+                // se o nome for igual ao anterior usa a mesma classe de CSS, caso contrario usa uma diferente
+                // para agrupar o mesmo nome ja que nao temos usuarios...
                 if (in_array($firstname, $nonuniquefirstnames) || ($firstname !== $previousfirstname)) {
                     $backgroundclass = ($backgroundclass === '') ? 'off-color' : '';
                 }
@@ -1818,6 +1890,9 @@ class zoomadmin {
         return str_replace($a, $b, $str);
     }
 
+    // Para agrupar as pessoas que têm um nome igual/parecido no relatório, para lidarmos com o fato de não estarmos forçando 
+    // login no Zoom e termos usuários que às vezes aparecem sem o mesmo nome
+    // Usamos a remoção dos acentos para comparar
     private function get_non_unique_first_names_from_course($meetingnumber) {
         global $DB;
 
