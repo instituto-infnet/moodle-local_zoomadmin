@@ -32,7 +32,7 @@ defined('MOODLE_INTERNAL') || die();
 require_once($CFG->dirroot . '/config.php');
 require_once($CFG->dirroot . '/lib/filelib.php');
 require_once(__DIR__ . '/../zoom-credentials.php');
-require_once(__DIR__ . '/google_api_controller.php');
+require_once(__DIR__ . '/google_api_controller.php'); // Este é o arquivo que tem o código que criamos que efetivamente faz a cópia dos arquivos para o Google Drive.
 
 /**
  * Classe de interação com a REST API do Zoom.
