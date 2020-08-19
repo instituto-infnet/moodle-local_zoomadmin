@@ -27,11 +27,11 @@
 // diretamente pelo nome
 namespace local_zoomadmin;
 
-defined('MOODLE_INTERNAL') || die();
+defined('MOODLE_INTERNAL') || die(); // Padrão, para só rodar no Moodle
 
-require_once($CFG->dirroot . '/config.php');
-require_once($CFG->dirroot . '/lib/filelib.php');
-require_once(__DIR__ . '/../zoom-credentials.php');
+require_once($CFG->dirroot . '/config.php'); // Config do Moodle
+require_once($CFG->dirroot . '/lib/filelib.php'); // Biblioteca do Moodle pra lidar com arquivos de modo geral
+require_once(__DIR__ . '/../zoom-credentials.php'); // Credenciais para acessar o Zoom
 require_once(__DIR__ . '/google_api_controller.php'); // Este é o arquivo que tem o código que criamos que efetivamente faz a cópia dos arquivos para o Google Drive.
 
 /**
@@ -60,54 +60,79 @@ class zoomadmin {
 
     var $commands = array();
 
+    // Função que chama a API do Zoom, é usada em vários outros momentos, em praticamente todas as funções que seguem
+    // Esta função poderia ser melhorada criando um log, o que facilitaria um debug de eventuais problemas que às vezes estamos tendo
+    // O padrão é chamar com método get e com attemptcount como 1
     private function request($endpoint, $params = array(), $method = 'get', $attemptcount = 1) {
         /**
          * @var int $attemptsleeptime Tempo (microssegundos) que deve ser
          *                            aguardado para tentar novamente quando o
          *                            máximo de requisições for atingido
          */
-        $attemptsleeptime = 100 * 1000;
+        $attemptsleeptime = 100 * 1000; // tempo de intervalo entre tentativas porque a API tem um limite de reequests para cada conta
         /** @var int $maxattemptcount Número máximo de novas tentativas */
         $maxattemptcount = 10;
+        
+        // Comandos disponíveis (ou que a gente já mapeou para usar) no método POST do HTTP
         $postcommandnames = array(
             'create',
             'update',
             'delete'
         );
 
+        // Pega as credenciais do Zoom
         $credentials = $this->get_credentials();
+        
+        // Instanciando um objeto da classe curl que está fora do namespace nosso, padrão, sendo que a classe curl é uma classe do Moodle
         $curl = new \curl();
 
+        // O payload aqui é só para preparar o token para fazer a requisição ao Zoom
         $payload = array(
             'iss' => $credentials['api_key'],
             'exp' => time() + (1000 * 60)
         );
+        
+        // Formata o token do modo esperado, usando o JWT para encodear o token
         $token = \Firebase\JWT\JWT::encode($payload, $credentials['api_secret']);
+        
+        // Está montando a requisição formatando os dados no objeto $curl, neste caso o header HTTP
         $curl->setHeader('Authorization: Bearer ' . $token);
 
+        // Quando a requisição não for GET (ou seja, auqi no nosso caso, é POST), modificamos o header
         if ($method !== 'get') {
             $curl->setHeader('content-type: application/json');
-            $params = is_array($params) ? json_encode($params) : $params;
+            $params = is_array($params) ? json_encode($params) : $params; // se recebemos um array, o encodeamos em json, senão mantemos a própria string
         }
 
+        // Montando a URL a ser chamada usando a constante BASE_URL e o endpoint recebido como parâmetro da chamada do request
         $url = $this::BASE_URL . $endpoint;
+        
+        // A função call_user_func_array permite chamarmos uma função de um objeto
+        // Ao invés de usar a sintaxa normal curl->setHeader, neste caso o nome da função vai depender do parâmetro
+        // que recebemos, e chamamos este nome numa variável. E passamos isso como parâmetro para o call_user_func_arry
+        // Ou seja: chamamos o objeto curl, usando o método passado como parâmetro e com os dados de URL e parâmetros definidos no array
+        // Temos que escrever array ali pois precisamos alocar esse espaço na memória para ser consumido por call_user_func_array.
         $response = call_user_func_array(array($curl, $method), array($url, $params));
 
+        // Se o curl retorna erro guardamos a mensagem no errormsg
         if ($curl->get_errno()) {
             $errormsg = $curl->error;
         }
 
+        // Dedodificamos a resposta
         $response = json_decode($response);
 
+        // Guarda o retorno HTTP do curl executado
         $httpstatus = $curl->get_info()['http_code'];
         if ($httpstatus >= 400) {
             if ($response) {
-                $errormsg = $response->message;
+                $errormsg = $response->message; // se tem alguma resposta, imprime, senão só o código HTTP de erro
             } else {
                 $errormsg = "HTTP Status $httpstatus";
             }
         }
 
+        // Esse if "false" simplesmente faz com que este código seja pulado. Isso não está sendo usado. Não lembramos por que.
         if (false && isset($errormsg)) {
             print_object(get_string('error_curl', 'local_zoomadmin', $errormsg));
             print_object((object) array(
@@ -117,10 +142,12 @@ class zoomadmin {
             ));
         }
 
+        // Grava no response o httpstatus caso esteja vazio (às vezes a API do Zoom não retorna nada, só o código HTTP)
         if (!isset($response)) {
             $response = $httpstatus;
         }
 
+        // retorna a resposta
         return $response;
     }
 
