@@ -132,14 +132,9 @@ class zoomadmin {
             }
         }
 
-        // Esse if "false" simplesmente faz com que este código seja pulado. Isso não está sendo usado. Não lembramos por que.
-        if (false && isset($errormsg)) {
-            print_object(get_string('error_curl', 'local_zoomadmin', $errormsg));
-            print_object((object) array(
-                'url' => $url,
-                'params' => $params,
-                'method' => $method
-            ));
+        // Esse if grava no log se houver erros no request
+        if (isset($errormsg)) {
+            $this->add_log('zoomadmin->request', 'Error: ' . $errormsg);
         }
 
         // Grava no response o httpstatus caso esteja vazio (às vezes a API do Zoom não retorna nada, só o código HTTP)
@@ -382,6 +377,7 @@ class zoomadmin {
         return $recordingsdata;
     }
 
+    // Esta é chamada repetidamente a partir da "add all recordings to page"
     public function add_recordings_to_page($meetingid) {
         if ($meetingid == null) {
             return $this->add_all_recordings_to_page();
