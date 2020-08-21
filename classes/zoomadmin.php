@@ -119,7 +119,7 @@ class zoomadmin {
             $errormsg = $curl->error;
         }
 
-        // Dedodificamos a resposta
+        // Dedodificamos a resposta, transformando-a em um objeto standard class com as propriedades que vem do JSON
         $response = json_decode($response);
 
         // Guarda o retorno HTTP do curl executado
@@ -1724,10 +1724,31 @@ class zoomadmin {
 
         // essa função request nós criamos aqui, ela é uma função básica para receber um endpoint e chamar a API
         // pegamos o endpoint report/meetings para o meetinguuid selecionado
+        $participantsdata = $this->request('report/meetings/' . urlencode(urlencode($data->meetinguuid)) . '/participants',array('page_size'=>300));
+        
+        // para lidarmos com aulas grandes, aumentamos para 300 o número máximo de linhas em uma página, o que é uma mitigação rápida do problema
+        //
+        // mas poderíamos lidar com várias páginas como descrito a seguir.      
         // para lidarmos com as várias páginas do relatório, teríamos que aqui incluir um loop para passar por todas as páginas
         // para ler tudo e fazer uma concatenação
-        $participantsdata = $this->request('report/meetings/' . urlencode(urlencode($data->meetinguuid)) . '/participants');
-
+        // enquanto tiver page token diferente de "", ler novamente concatenando
+        // para ler com o page token, acrescentar no request o parâmetro com a sintaxe como abaixo:
+        // $this->request('report/meetings/' . urlencode(urlencode($data->meetinguuid)) . '/participants', array('nextpagetoken'=>$token));
+        // isso teria que ser concatenado no $participantsdata
+        // o participantsdata-> participants seria o merge do array anterior com o novo.
+        // o melhor seria fazer uma função para esta concatenação
+        /*
+        // if ($participantsdata->next_page_token !== '') {
+            $endpoint = 'report/meetings/' . urlencode(urlencode($data->meetinguuid)) . '/participants'
+            $dataotherpages = $this->request($endpoint,array('page_size'=>300, 'next_page_token'=>$participantsdata->next_page_token);
+            $participantsdata->participants = array_merge($participantsdata->participants, $dataotherpages->participants);
+            while ($dataotherpages->next_page_token !== '') {
+                $dataotherpages = $this->request($endpoint,array('page_size'=>300, 'next_page_token'=>$participantsdata->next_page_token);
+                $participantsdata->participants = array_merge($participantsdata->participants, $dataotherpages->participants);
+            }
+        // }
+        //*/
+        
         // Lemos e gravamos no banco, sem tratar, os dados como vieram da API
         foreach ($participantsdata->participants as $participant) {
             $rowdata = clone $data;
