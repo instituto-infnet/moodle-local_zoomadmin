@@ -1751,11 +1751,11 @@ class zoomadmin {
         
         // Aqui está o código para pegar todas as páginas.
         if ($participantsdata->next_page_token !== '') {
-            $endpoint = 'report/meetings/' . urlencode(urlencode($data->meetinguuid)) . '/participants'
-            $dataotherpages = $this->request($endpoint,array('page_size'=>300, 'next_page_token'=>$participantsdata->next_page_token);
+            $endpoint = 'report/meetings/' . urlencode(urlencode($data->meetinguuid) . '/participants');
+            $dataotherpages = $this->request($endpoint,array('page_size'=>300, 'next_page_token'=>$participantsdata->next_page_token));
             $participantsdata->participants = array_merge($participantsdata->participants, $dataotherpages->participants);
             while ($dataotherpages->next_page_token !== '') {
-                $dataotherpages = $this->request($endpoint,array('page_size'=>300, 'next_page_token'=>$participantsdata->next_page_token);
+                $dataotherpages = $this->request($endpoint,array('page_size'=>300, 'next_page_token'=>$participantsdata->next_page_token));
                 $participantsdata->participants = array_merge($participantsdata->participants, $dataotherpages->participants);
             }
         }
