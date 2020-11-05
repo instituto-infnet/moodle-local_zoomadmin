@@ -1723,7 +1723,7 @@ class zoomadmin {
         $rowstoinsert = array(); // declarando um array vazio
 
         // essa função request nós criamos aqui, ela é uma função básica para receber um endpoint e chamar a API
-        // pegamos o endpoint report/meetings para o meetinguuid selecionado
+        // pegamos o endpoint report/meetings para o meetinguuid selecionado, tomando o cuidado de pedir páginas grandes
         $participantsdata = $this->request('report/meetings/' . urlencode(urlencode($data->meetinguuid)) . '/participants',array('page_size'=>300));
         
         // para lidarmos com aulas grandes, aumentamos para 300 o número máximo de linhas em uma página, o que é uma mitigação rápida do problema
@@ -1749,6 +1749,18 @@ class zoomadmin {
         // }
         //*/
         
+        // Aqui está o código para pegar todas as páginas.
+        if ($participantsdata->next_page_token !== '') {
+            $endpoint = 'report/meetings/' . urlencode(urlencode($data->meetinguuid)) . '/participants'
+            $dataotherpages = $this->request($endpoint,array('page_size'=>300, 'next_page_token'=>$participantsdata->next_page_token);
+            $participantsdata->participants = array_merge($participantsdata->participants, $dataotherpages->participants);
+            while ($dataotherpages->next_page_token !== '') {
+                $dataotherpages = $this->request($endpoint,array('page_size'=>300, 'next_page_token'=>$participantsdata->next_page_token);
+                $participantsdata->participants = array_merge($participantsdata->participants, $dataotherpages->participants);
+            }
+        }
+
+
         // Lemos e gravamos no banco, sem tratar, os dados como vieram da API
         foreach ($participantsdata->participants as $participant) {
             $rowdata = clone $data;
