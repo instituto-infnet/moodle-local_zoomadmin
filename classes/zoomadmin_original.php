@@ -1,4 +1,8 @@
+
+
 <?php
+// Guardado por precaução antes de mexida em 21/12/2020
+
 // This file is part of Moodle - http://moodle.org/
 //
 // Moodle is free software: you can redistribute it and/or modify
@@ -329,20 +333,9 @@ class zoomadmin {
         return $meetings;
     }
 
-    // Função chamada pela página que lista as reuniões, pois retorna todas as gravações do servidor.
+    // Função não mais utilizada, pois retorna todas as gravações do servidor.
     public function get_recording_list($params = array()) {
-        $params['page_size'] = 10;
-        // echo("<pre>");
-        // print_r($params);
-        // echo("</pre>");
-
-        $userdata = $this->request('users', $params);
-        
-        // echo "<pre>";
-        // echo "userdata";
-        // print_r($userdata);
-        // echo "</pre>";
-
+        $userdata = $this->request('users', array('page_size' => MAX_PAGE_SIZE));
         $users = $userdata->users;
 
         $recordingsdata = new \stdClass();
@@ -350,59 +343,37 @@ class zoomadmin {
         $recordingsdata->add_recordings_to_page_url = './add_recordings_to_page.php';
         $recordingsdata->send_recordings_to_google_drive_url = './send_recordings_to_google_drive.php';
         $recordingsdata->participants_url = './participants.php';
+
         $recordingsdata->meetings = array();
 
-        // Faz um loop percorrendo todas as reuniões de um determinado usuário
-            foreach ($users as $user) {
-            $params['page_size'] = 300;
+        foreach ($users as $user) {
+            $params['page_size'] = MAX_PAGE_SIZE;
             $params['from'] = $this::INITIAL_RECORDING_DATE;
 
             $userrecordings = $this->request(
                 implode('/', array('users', $user->id, 'recordings')),
                 $params
             );
-            // echo "<pre>";
-            // echo "userrecordings";
-            // print_r($userrecordings);
-            // echo "</pre>";
 
-
-            // Garante que todas as reuniões de um usuário serão lidas, no caso extremo de termos usuários com mais de 300 meetings
-            // Creio que está funcionando, basta retirar o comentário depois.
-            // if ($userrecordings->next_page_token != '') {
-            //     $params['next_page_token'] = $userrecordings->next_page_token;
-            //     $endpoint = implode('/', array('users', $user->id, 'recordings'));
-            //     $dataotherrecordings = $this->request($endpoint,$params);
-            //     $userrecordings->meetings = array_merge($userreconrdings->meetings, $dataotherrecordings->meetings);
-            //    while ($dataotherrecordings->next_page_token != '') {
-            //        $params['next_page_token'] = $dataotherrecordings->next_page_token;
-            //        $dataotherrecordings = $this->request($endpoint,$params);
-            //        $userrecordings->meetings = array_merge($userrecordings->meetings, $dataotherrecordings->meetings);
-            //  }
-           // }
+// echo "<pre>";
+// print_f($params);
+// echo "</pre>";
+// echo "<pre>";
+// print_f($userrecordings);
+// echo "</pre>";
 
             $recordingsdata->total_records = $userrecordings->total_records;
 
-            // echo "<pre>";
-            // echo "recordingsdata";
-            // print_r($recordingsdata);
-            // echo "</pre>";
-
-            // Não é claro por que isto é feito.
             if ($recordingsdata->total_records > 0) {
                 foreach($userrecordings->meetings as $index => $meeting) {
                     $userrecordings->meetings[$index]->host = $user;
                 }
-                
-                $recordingsdata->total_records += $userrecordings->total_records;
-                // echo "<pre>";
-                // echo "recordingsdata->totalrecords acumulado";
-                // print_r($recordingsdata->total_records);
-                // echo "</pre>";
 
-            // $recordingpagecount = (isset($recordingsdata->page_count)) ? $recordingsdata->page_count : 1;
-            // $userpagecount = (isset($userrecordings->page_count)) ? $userrecordings->page_count : 1;
-            // $recordingsdata->page_count = max($recordingpagecount, $userpagecount);                
+                $recordingsdata->total_records += $userrecordings->total_records;
+
+                $recordingpagecount = (isset($recordingsdata->page_count)) ? $recordingsdata->page_count : 1;
+                $userpagecount = (isset($userrecordings->page_count)) ? $userrecordings->page_count : 1;
+                $recordingsdata->page_count = max($recordingpagecount, $userpagecount);
 
                 $recordingsdata->meetings = $this->set_recordings_data(array_merge($recordingsdata->meetings, $userrecordings->meetings));
 
@@ -413,8 +384,7 @@ class zoomadmin {
         }
 
         $recordingsdata->meetings = $this->sort_meetings_by_start($recordingsdata->meetings, false);
-        $recordingsdata->page_count = $userdata->page_count;
-        $recordingsdata->page_number = $userdata->page_number;
+
         return $recordingsdata;
     }
 
@@ -1791,7 +1761,6 @@ class zoomadmin {
         //*/
         
         // Aqui está o código para pegar todas as páginas de uma lista de presença, manipulando o "next_page_token".
-        // Com isso pensamos ter resolvido o bug de relatórios de presença que não traziam a presença de todos os participantes.
         if ($participantsdata->next_page_token != '') {
            $endpoint = 'report/meetings/' . urlencode(urlencode($data->meetinguuid) . '/participants');
            $dataotherpages = $this->request($endpoint,array('page_size'=>300, 'next_page_token'=>$participantsdata->next_page_token));
@@ -1845,7 +1814,7 @@ class zoomadmin {
         $DB->insert_records('local_zoomadmin_participants', $data);
     }
 
-    // insere o dado de acesso a aulas gravadas, para fazer a lista de presença
+    // insere o dado de acesso a aulas gravadas
     // esta função é chamada da página via JavaScript por meio de um Webservice (é um Ajax...)
     private function insert_recording_viewed_participant_data($uuid, $userid) {
         $data = new \stdClass();
