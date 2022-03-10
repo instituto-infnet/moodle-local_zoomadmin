@@ -27,6 +27,8 @@
 // namespace local_zoomadmin;
 defined('MOODLE_INTERNAL') || die;
 
+ini_set("memory_limit", "1536M");
+
 require_once(__DIR__ . '/../google-api/vendor/autoload.php');
 
 /**
@@ -80,8 +82,9 @@ class google_api_controller {
                     }
                 }
 
-                $filesize = $filesize ?: $filedata['file_size'];
-                $filedata['file_size'] = $filesize;
+                $filesize = $filedata['file_size'];
+                //$filesize = $filesize ?: $filedata['file_size'];//modificação 
+                //$filedata['file_size'] = $filesize;//modificação 
 
                 $simpleupload = $filesize <= $maxsizesimpleupload;
                 print_r($this::LB . $filesize . ' bytes ' . (($simpleupload) ? '<= ' : '> ') . $maxsizesimpleupload);
@@ -160,6 +163,7 @@ class google_api_controller {
             }
         } catch (Google_Service_Exception $err) {
             print_r($this::LB . 'google exception:' . $this::LB);
+            // print_r($err);
         } catch (Exception $err) {
             print_r($this::LB . $err . $this::LB);
         }
@@ -321,10 +325,10 @@ class google_api_controller {
 
         $curl = new \curl();
 
-        $file = fopen($filepath, 'w');
-
         print_r($this::LB . 'file size on disk: ' . filesize($filepath) . ' / total file size to download: ' . $filedata['file_size']);
         if (filesize($filepath) !== $filedata['file_size']) {
+            $file = fopen($filepath, 'w');
+
             $result = $curl->download_one($filedata['file_url'], null,
                 array(
                     'file' => $file,
@@ -333,18 +337,16 @@ class google_api_controller {
                     'maxredirs' => 3
                 )
             );
+            fclose($file);
+
+            if ($result === true) {
+                print_r($this::LB . 'file downloaded');
+            } else {
+                print_r($this::LB . 'errno: ' . $curl->get_errno());
+                print_r($this::LB . $result);
+            }
         } else {
             print_r($this::LB . 'file exists: ' . filesize($filepath) . ' = ' . $filedata['file_size']);
-            $result = true;
-        }
-
-        fclose($file);
-
-        if ($result === true) {
-            print_r($this::LB . 'file downloaded');
-        } else {
-            print_r($this::LB . 'errno: ' . $curl->get_errno());
-            print_r($this::LB . $result);
         }
 
         return $filepath;

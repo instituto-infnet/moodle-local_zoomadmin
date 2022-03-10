@@ -937,6 +937,7 @@ class zoomadmin {
                 left join {course_categories} cc2 on cc2.id = cc.parent
                 left join {course_categories} cc3 on cc3.id = cc2.parent
                 left join {course_categories} cc4 on cc4.id = cc3.parent
+                left join {course_categories} cc5 on cc5.id = cc4.parent 
             where 1 = 1
         ";
 
@@ -990,6 +991,7 @@ class zoomadmin {
                 left join {course_categories} cc2 on cc2.id = cc.parent
                 left join {course_categories} cc3 on cc3.id = cc2.parent
                 left join {course_categories} cc4 on cc4.id = cc3.parent
+                left join {course_categories| cc5 on cc5.id = cc4.parent
             where cm.id = ?
         ";
 
@@ -1750,6 +1752,7 @@ class zoomadmin {
         //*/
         
         // Aqui está o código para pegar todas as páginas de uma lista de presença, manipulando o "next_page_token".
+        // Com isso pensamos ter resolvido o bug de relatórios de presença que não traziam a presença de todos os participantes.
         if ($participantsdata->next_page_token != '') {
            $endpoint = 'report/meetings/' . urlencode(urlencode($data->meetinguuid) . '/participants');
            $dataotherpages = $this->request($endpoint,array('page_size'=>300, 'next_page_token'=>$participantsdata->next_page_token));
@@ -1803,7 +1806,7 @@ class zoomadmin {
         $DB->insert_records('local_zoomadmin_participants', $data);
     }
 
-    // insere o dado de acesso a aulas gravadas
+    // insere o dado de acesso a aulas gravadas, para fazer a lista de presença
     // esta função é chamada da página via JavaScript por meio de um Webservice (é um Ajax...)
     private function insert_recording_viewed_participant_data($uuid, $userid) {
         $data = new \stdClass();

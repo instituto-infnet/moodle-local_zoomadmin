@@ -64,3 +64,7 @@ sftp-config.json
 # Arquivo com credenciais de produção
 google-credentials.json
 zoom-credentials.php
+google-token.json
+google-credentials.1.json
+credentials.php
+error_log
