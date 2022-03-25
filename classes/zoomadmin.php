@@ -590,8 +590,13 @@ class zoomadmin {
         return $googlecontroller->oauth2callback($params);
     }
 
-    // Envia todas as aulas passadas de uma disciplina para o Google Drive
-    // Ela chama a anterior, que envia os arquivos de cada sessão
+    /**
+     * Envia todas as aulas passadas de uma disciplina para o Google Drive\
+     * Ela chama a anterior, que envia os arquivos de cada sessão
+     * @param formdata Dados do formulario para passar as funções internas
+     * 
+     * @return string retorna mensagens para ser exibidas no Cron
+     * */
     public function send_course_recordings_to_google_drive($formdata) {
         $formdata = (array) $formdata;
         $meetingsanduuids = array();
@@ -624,6 +629,56 @@ class zoomadmin {
         }
 
         return implode($messages); // pega o vetor e concatena uma mensagem com a outra, devolvendo para quem chamou, no caso típico vai imprimir na interface web
+    }
+
+    /**
+     * Recupera os cursos que as gravações estejam elegiveis para fazer upload no Google Drive,
+     * pelo criterio de dias e meses para corte
+     * 
+     * @return void função sem retorno
+     */
+    public function send_all_course_recordings_to_google_drive(){
+        $courses = $this->get_all_filtered_courses_to_send_to_google_drive();
+
+        foreach($courses as $course) {
+            $course = (array) $course;
+            $task = new \local_zoomadmin\task\send_course_recordings_to_google_drive_task();
+            $task->set_custom_data($course);
+            \core\task\manager::queue_adhoc_task($task);
+            $message = get_string(
+                'send_recordings_task_created',
+                'local_zoomadmin',
+                array(
+                    'zoommeetingnumber' => $course['zoommeetingnumber'],
+                    'pagecmid' => $course['pagecmid'],
+                    'exectime' => date('Y-m-d h:i:s')
+                )
+            );
+        
+            (new \local_zoomadmin\zoomadmin())->add_log('send_course_recordings_to_google_drive.php', $message);
+            echo $message;
+        }
+    }
+
+    /**
+     * Recupera os cursos que estão elegeveis para realizar o upload,
+     * o criterio de tempo para filtrar e realizar o uploado 
+     * está hardcoded dentro da função
+     * 
+     * @return array filtered_courses
+     */
+    public function get_all_filtered_courses_to_send_to_google_drive(){
+        global $DB;
+
+        $daycriteria = 345600;// timestamp definido para 4 dias
+        $monthcriteria = 4838400;
+        $timenow = time();
+
+        $query = "SELECT * FROM {local_zoomadmin_recordpages} 
+            WHERE (lastaddedtimestamp + $daycriteria) < $timenow 
+            AND lastaddedtimestamp > $timenow - $monthcriteria";
+
+        return $DB->get_records_sql($query);
     }
 
     // Grava um registro no log
@@ -722,10 +777,10 @@ class zoomadmin {
         );
     }
     
-    // Recebe dados da API do Zoom e faz
-    // alguns ajustes que usaremos no PHP, 
-    // tanto para legibilidade quanto para
-    // uso no código
+    /**
+     * Recebe dados da API do Zoom e faz alguns ajustes que usaremos no PHP,
+     * tanto para legibilidade quanto para uso no código
+     */
     private function set_recordings_data($meetings) {
         foreach($meetings as $meetingindex => $meeting) {
             $timezone = $this->get_meeting_timezone($meeting);

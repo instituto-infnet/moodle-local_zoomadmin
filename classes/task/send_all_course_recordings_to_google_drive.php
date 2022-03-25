@@ -14,18 +14,23 @@
 // You should have received a copy of the GNU General Public License
 // along with Moodle.  If not, see <http://www.gnu.org/licenses/>.
 /**
- * Detalhes da versão do plugin.
- *
- * Define a versão atual do plugin, nome e versão mínima do Moodle necessária.
+ * Página com lista de gravações na nuvem do Zoom.
  *
  * @package    local_zoomadmin
  * @copyright  2017 Instituto Infnet {@link http://infnet.edu.br}
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 
+namespace local_zoomadmin\task;
 defined('MOODLE_INTERNAL') || die();
 
+class send_all_course_recordings_to_google_drive extends \core\task\scheduled_task {
+	public function get_name() {
+		return get_string('send_recordings_to_google_drive', 'local_zoomadmin');
+	}
 
-$plugin->version   = 2022031102; // The current plugin version (Date: YYYYMMDDXX).
-$plugin->requires  = 2016051900; // Requires this Moodle version.
-$plugin->component = 'local_zoomadmin'; // Full name of the plugin (used for diagnostics).
+	public function execute() {
+		$zoomadmin = new \local_zoomadmin\zoomadmin();
+		$zoomadmin->send_all_course_recordings_to_google_drive();
+	}
+}

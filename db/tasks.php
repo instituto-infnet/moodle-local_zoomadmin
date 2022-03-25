@@ -25,5 +25,14 @@ $tasks = array(
 		'day' => '*',
 		'dayofweek' => '*',
 		'month' => '*'
-	)
+    ),
+    array(
+		'classname' => 'local_zoomadmin\task\send_all_course_recordings_to_google_drive',
+		'blocking' => 0,
+		'minute' => '0',
+		'hour' => '2',
+		'day' => '*',
+		'dayofweek' => '*',
+		'month' => '*'
+    )
 );
