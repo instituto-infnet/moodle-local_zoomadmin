@@ -23,7 +23,7 @@
 
 require_once(__DIR__ . '/../../config.php');
 require_once($CFG->libdir . '/adminlib.php');
-require_once(__DIR__ . '/classes/log_form.php');
+require_once(__DIR__ . '/classes/form/log_form.php');
 
 $url = new moodle_url('/local/zoomadmin/log.php');
 $title = get_string('pluginname', 'local_zoomadmin')  . ' - ' . get_string('log', 'local_zoomadmin');

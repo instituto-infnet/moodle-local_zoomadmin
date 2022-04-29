@@ -24,7 +24,7 @@
 
 require_once(__DIR__ . '/../../config.php');
 require_once($CFG->libdir . '/adminlib.php');
-require_once(__DIR__ . '/classes/recording_edit_page_form.php');
+require_once(__DIR__ . '/classes/form/recording_edit_page_form.php');
 
 $params = array(
     'action' => required_param('action', PARAM_TEXT),

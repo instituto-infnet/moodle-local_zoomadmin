@@ -23,7 +23,7 @@
 
 require_once(__DIR__ . '/../../config.php');
 require_once($CFG->libdir . '/adminlib.php');
-require_once(__DIR__ . '/classes/user_get_form.php');
+require_once(__DIR__ . '/classes/form/user_get_form.php');
 
 $params = array(
     'method' => optional_param('method', null, PARAM_TEXT)

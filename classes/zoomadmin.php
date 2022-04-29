@@ -27,6 +27,8 @@
 // diretamente pelo nome
 namespace local_zoomadmin;
 
+use local_zoomadmin\form\log_form;
+
 defined('MOODLE_INTERNAL') || die(); // Padrão, para só rodar no Moodle
 
 require_once($CFG->dirroot . '/config.php'); // Config do Moodle
@@ -55,14 +57,13 @@ class zoomadmin {
     const MIN_VIDEO_SIZE = self::KBYTE_BYTES * self::KBYTE_BYTES * 20;
     const INITIAL_RECORDING_DATE = '2018-11-01';
 
-    const LB = '
-'; // É um "enter" para fazer uma quebra de linha no output do cron, deixar como está
-
     var $commands = array();
 
-    // Função que chama a API do Zoom, é usada em vários outros momentos, em praticamente todas as funções que seguem
-    // Esta função poderia ser melhorada criando um log, o que facilitaria um debug de eventuais problemas que às vezes estamos tendo
-    // O padrão é chamar com método get e com attemptcount como 1
+    /**
+     * Função que chama a API do Zoom, é usada em vários outros momentos, em praticamente todas as funções que seguem
+     *  Esta função poderia ser melhorada criando um log, o que facilitaria um debug de eventuais problemas que às vezes estamos tendo
+     *  O padrão é chamar com método get e com attemptcount como 1
+     */
     private function request($endpoint, $params = array(), $method = 'get', $attemptcount = 1) {
         /**
          * @var int $attemptsleeptime Tempo (microssegundos) que deve ser
@@ -377,7 +378,9 @@ class zoomadmin {
         return $recordingsdata;
     }
 
-    // Esta é chamada repetidamente a partir da "add all recordings to page"
+    /**
+     * Esta é chamada repetidamente a partir da "add all recordings to page"
+     * */ 
     public function add_recordings_to_page($meetingid) {
         if ($meetingid == null) {
             return $this->add_all_recordings_to_page();
@@ -534,8 +537,7 @@ class zoomadmin {
         }
 
         // Print_r é tipo um echo, para cuspir na tela um texto cru; usamos isso aqui porque estamos usando essa função dentro do cron
-        // O LB é um linebreak, uma constante desse arquivo que definimos lá em cima
-        print_r($this::LB . '$meetingid = [' . $meetingid . ']');
+        print_r(PHP_EOL . '$meetingid = [' . $meetingid . ']');
         
         // Acessa a API do Google para poder enviar os arquivos para lá
         // Parâmetros: meetingrecordings são os dados da gravação, pagedata é uma série de informações sobre a página do Moodle puxadas do banco do Moodle
@@ -670,7 +672,7 @@ class zoomadmin {
     public function get_all_filtered_courses_to_send_to_google_drive(){
         global $DB;
 
-        $daycriteria = 345600;// timestamp definido para 4 dias
+        $daycriteria = 172800;// timestamp definido para 2 dias
         $monthcriteria = 4838400;
         $timenow = time();
 
@@ -916,7 +918,9 @@ class zoomadmin {
         return $occurrences;
     }
 
-    // Chama o endpoint da API do Zoom para pegar os dados da reunião que estão gravados no Zoom
+    /**
+     * Chama o endpoint da API do Zoom para pegar os dados da reunião que estão gravados no Zoom
+     */
     private function get_meeting_data($meetingnumber) {
         return $this->request('meetings/' . $meetingnumber);
     }
@@ -926,7 +930,9 @@ class zoomadmin {
         return $this->request('past_meetings/' . urlencode(urlencode($uuid)));
     }
 
-    // Pega os dados na API do Zoom das gravações de uma ocorrência
+    /**
+     * Pega os dados na API do Zoom das gravações de uma ocorrência
+     */
     private function get_recording($meetingid) {
         $commands = $this->commands;
 
@@ -954,9 +960,11 @@ class zoomadmin {
         return $response;
     }
 
-    // Pega informações a partir dos parâmetros do Zoom; Pega os dados da página de gravações
-    // id entre a página e a reunião do zoom, o id da página, todos os itens da tabela página, o que inclui o seu conteúdo
-    // pega também categorias, vê se gravações já estão no Google Drive ou se estão no Zoom...
+    /**
+     * Pega informações a partir dos parâmetros do Zoom; Pega os dados da página de gravações
+     * id entre a página e a reunião do zoom, o id da página, todos os itens da tabela página, o que inclui o seu conteúdo
+     * pega também categorias, vê se gravações já estão no Google Drive ou se estão no Zoom...
+     */ 
     private function get_recordings_page_data($params = array()) {
         global $DB;
 
@@ -1071,8 +1079,10 @@ class zoomadmin {
         return array('meetings' => $meetings, 'uuids' => $uuids);
     }
 
-    // Gera e devolve os links que estão no Zoom para os links do Google drive; é o novo conteúdo da página de gravações, 
-    // com os links trocados do Zoom para o Google Drive
+    /** 
+     * Gera e devolve os links que estão no Zoom para os links do Google drive; é o novo conteúdo da página de gravações,
+     * com os links trocados do Zoom para o Google Drive
+     * */
     private function get_new_recordings_page_content($pagedata, $meetingrecordings) {
         $content = $pagedata->content;
         $recordingurls = $this->get_recording_urls_for_page($meetingrecordings->recording_files);
@@ -1143,13 +1153,22 @@ class zoomadmin {
         }
     }
 
-    // Depois de pegar da API do Zoom as URLs, elas são tratadas para mexer no PHP
-    // Aqui só tratamos o arquivo de vídeo e o de chat, que são os que entram na página.
-    // O arquivo de áudio e o de timeline e outros são copiados para o Google Drive, mas não entram na página.
+
+
+    /**
+     * Depois de pegar da API do Zoom as URLs, elas são tratadas para mexer no PHP
+     * Aqui só tratamos o arquivo de vídeo e o de chat, que são os que entram na página.
+     * O arquivo de áudio e o de timeline e outros são copiados para o Google Drive, mas não entram na página.
+     * */
     private function get_recording_urls_for_page($recordings) {
         $recordinglist = array();
         $ignoredvideo = true;
         $videoindex = 0;
+        //Reorganiza os arquivos de gravação por seu tamanho,
+        //devido a bug que gerava quando os arquivos vinham em ordem aleatoria
+        usort($recordings, function ($a, $b) {
+            return ($a->file_size < $b->file_size) ? 1 : -1;
+        });
 
         foreach ($recordings as $index => $recording) {
             $filetype = $recording->file_type;
@@ -1182,7 +1201,9 @@ class zoomadmin {
         return $recordinglist;
     }
 
-    // Este é o que troca efetivamente o conteúdo da página das gravações
+    /**
+     * Este é o que troca efetivamente o conteúdo da página das gravações
+     */ 
     private function update_recordings_page($meetingrecordings, $pagedata){
         $this->retrieve_participants_data($meetingrecordings);
 
@@ -1236,9 +1257,11 @@ class zoomadmin {
         );
     }
 
-    // Importa os links de gravações de todas as páginas que temos gravadas
-    // Roda no cron de hora em hora para verificar se há nova gravação disponível no Zoom
-    // e então chama a atualização da página correspondente.
+    /**
+     * Importa os links de gravações de todas as páginas que temos gravadas
+     * Roda no cron de hora em hora para verificar se há nova gravação disponível no Zoom
+     * e então chama a atualização da página correspondente.
+     * */ 
     private function add_all_recordings_to_page() {
         $pagesdata = $this->get_recordings_page_data(array('lastmonth' => true));
 
@@ -1805,6 +1828,7 @@ class zoomadmin {
         //*/
         
         // Aqui está o código para pegar todas as páginas de uma lista de presença, manipulando o "next_page_token".
+        // Com isso pensamos ter resolvido o bug de relatórios de presença que não traziam a presença de todos os participantes.
         if ($participantsdata->next_page_token != '') {
            $endpoint = 'report/meetings/' . urlencode(urlencode($data->meetinguuid) . '/participants');
            $dataotherpages = $this->request($endpoint,array('page_size'=>300, 'next_page_token'=>$participantsdata->next_page_token));
@@ -1858,7 +1882,7 @@ class zoomadmin {
         $DB->insert_records('local_zoomadmin_participants', $data);
     }
 
-    // insere o dado de acesso a aulas gravadas
+    // insere o dado de acesso a aulas gravadas, para fazer a lista de presença
     // esta função é chamada da página via JavaScript por meio de um Webservice (é um Ajax...)
     private function insert_recording_viewed_participant_data($uuid, $userid) {
         $data = new \stdClass();
@@ -1887,9 +1911,12 @@ class zoomadmin {
         return $DB->get_record('user', array('id' => $userid));
     }
 
-    // É o relatório de presença da disciplina inteira
-    // esta funcao tem um bom trabalho para tentar agrupar usuários que não são logados no zoom
-    // poderia ser agrupado em uma função separada e também poderia ser tornado irrelevante se nós tornarmos os usuários do Zoom logados obrigatoriamente
+    /**
+     * É o relatório de presença da disciplina inteira
+     * esta funcao tem um bom trabalho para tentar agrupar usuários que não são logados no zoom
+     * poderia ser agrupado em uma função separada e também poderia ser tornado irrelevante 
+     * se nós tornarmos os usuários do Zoom logados obrigatoriamente
+     * */ 
     private function get_participants_all_instances_data($meetingnumber) {
         $filteremail = $this->get_filter_email_for_participants_report();
         $meetingnumber = str_replace('-', '', $meetingnumber);
