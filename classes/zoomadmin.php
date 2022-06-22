@@ -595,7 +595,7 @@ class zoomadmin {
     /**
      * Envia todas as aulas passadas de uma disciplina para o Google Drive\
      * Ela chama a anterior, que envia os arquivos de cada sessão
-     * @param formdata Dados do formulario para passar as funções internas
+     * @param object $formdata Dados do formulario para passar as funções internas
      * 
      * @return string retorna mensagens para ser exibidas no Cron
      * */
@@ -1781,10 +1781,12 @@ class zoomadmin {
         return $data;
     }
 
-    // Esta é a função que vai na API e faz a gravação dos seus dados no banco
-    // É aqui que temos um potencial bug de não pegar todas as páginas de dados
-    // usamos um endpoint que não é o mesmo do dashboard que acessamos manualmente no Zoom
-    private function retrieve_participants_data($meetingdata) {
+    /**
+     * Esta é a função que vai na API e faz a gravação dos seus dados no banco
+     * É aqui que temos um potencial bug de não pegar todas as páginas de dados
+     * usamos um endpoint que não é o mesmo do dashboard que acessamos manualmente no Zoom
+     * */
+     private function retrieve_participants_data($meetingdata) {
         
         // no meeting data temos todas as ocorrências daquela reunião; pode ser que algumas já tenham sido importadas para o banco
         // as que já tiverem sido gravadas no banco; como os dados são do registro ao vivo, eles não mudam depois

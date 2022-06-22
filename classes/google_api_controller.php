@@ -45,8 +45,6 @@ class google_api_controller {
     const CREDENTIALS_PATH = __DIR__ . '/../google-credentials.json';
     const TOKEN_PATH = __DIR__ . '/../google-token.json';
     const MIME_TYPE_FOLDER = 'application/vnd.google-apps.folder';
-    const LB = '
-';
 
     var $client;
     var $service;
@@ -76,7 +74,7 @@ class google_api_controller {
                 $fileurl = $filedata['file_url'];
 
                 foreach (get_headers($fileurl, true)['Content-Length'] as $filesize) {
-                    print_r($this::LB . '$filesize: ' . $filesize);
+                    print_r(PHP_EOL . '$filesize: ' . $filesize);
                     if ($filesize > 0) {
                         break;
                     }
@@ -87,13 +85,13 @@ class google_api_controller {
                 //$filedata['file_size'] = $filesize;//modificação 
 
                 $simpleupload = $filesize <= $maxsizesimpleupload;
-                print_r($this::LB . $filesize . ' bytes ' . (($simpleupload) ? '<= ' : '> ') . $maxsizesimpleupload);
+                print_r(PHP_EOL . $filesize . ' bytes ' . (($simpleupload) ? '<= ' : '> ') . $maxsizesimpleupload);
 
                 if ($simpleupload === true) {
                     $curl = new \curl();
                     $uploaddata = $curl->download_one($fileurl, null);
                 } else {
-                    print_r($this::LB . 'creating local temp file');
+                    print_r(PHP_EOL . 'creating local temp file');
                     $tempfilepath = $this->create_local_temp_file($filedata);
 
                     $client = $this->client;
@@ -109,7 +107,7 @@ class google_api_controller {
                 'fields' => 'id, name, mimeType, parents, webViewLink'
             ));
 
-            print_r($this::LB . 'file created on Google Drive');
+            print_r(PHP_EOL . 'file created on Google Drive');
 
             if ($simpleupload === true) {
                 $result = $request;
@@ -138,14 +136,14 @@ class google_api_controller {
 
                     $progress = (!$status) ? round(100 * ($media->getProgress() / $filesize), 2) : 100;
 
-                    print_r($this::LB .
+                    print_r(PHP_EOL .
                         'sucessfully uploaded file up to byte ' . $media->getProgress() .
                         ' which is ' . $progress .
                         '% of the whole file'
                     );
                 }
 
-                print_r($this::LB . 'upload done');
+                print_r(PHP_EOL . 'upload done');
 
                 // The final value of $status will be the data from the API
                 // for the object that has been uploaded.
@@ -162,13 +160,13 @@ class google_api_controller {
                 $client->setDefer(false);
             }
         } catch (Google_Service_Exception $err) {
-            print_r($this::LB . 'google exception:' . $this::LB);
+            print_r(PHP_EOL . 'google exception:' . PHP_EOL);
             // print_r($err);
         } catch (Exception $err) {
-            print_r($this::LB . $err . $this::LB);
+            print_r(PHP_EOL . $err . PHP_EOL);
         }
 
-        print_r($this::LB . 'file transfer complete' . $this::LB);
+        print_r(PHP_EOL . 'file transfer complete' . PHP_EOL);
         return $result;
     }
 
@@ -321,11 +319,11 @@ class google_api_controller {
 
         $filepath .= '/' . $filedata['id'];
 
-        print_r($this::LB . '$filepath = ' . $filepath);
+        print_r(PHP_EOL . '$filepath = ' . $filepath);
 
         $curl = new \curl();
 
-        print_r($this::LB . 'file size on disk: ' . filesize($filepath) . ' / total file size to download: ' . $filedata['file_size']);
+        print_r(PHP_EOL . 'file size on disk: ' . filesize($filepath) . ' / total file size to download: ' . $filedata['file_size']);
         if (filesize($filepath) !== $filedata['file_size']) {
             $file = fopen($filepath, 'w');
 
@@ -340,13 +338,13 @@ class google_api_controller {
             fclose($file);
 
             if ($result === true) {
-                print_r($this::LB . 'file downloaded');
+                print_r(PHP_EOL . 'file downloaded');
             } else {
-                print_r($this::LB . 'errno: ' . $curl->get_errno());
-                print_r($this::LB . $result);
+                print_r(PHP_EOL . 'errno: ' . $curl->get_errno());
+                print_r(PHP_EOL . $result);
             }
         } else {
-            print_r($this::LB . 'file exists: ' . filesize($filepath) . ' = ' . $filedata['file_size']);
+            print_r(PHP_EOL . 'file exists: ' . filesize($filepath) . ' = ' . $filedata['file_size']);
         }
 
         return $filepath;
