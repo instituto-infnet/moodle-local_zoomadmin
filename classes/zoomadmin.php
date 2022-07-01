@@ -672,7 +672,7 @@ class zoomadmin {
     public function get_all_filtered_courses_to_send_to_google_drive(){
         global $DB;
 
-        $daycriteria = 172800;// timestamp definido para 2 dias
+        $daycriteria = 86400;// timestamp definido para 2 dias
         $monthcriteria = 4838400;
         $timenow = time();
 
