@@ -25,6 +25,6 @@
  * @copyright  2017 Instituto Infnet {@link http://infnet.edu.br}
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
-$CFG->zoom_apikey = 'YOUR_API_KEY';
-$CFG->zoom_apisecret = 'YOUR_API_SECRET';
-$CFG->zoom_token = 'YOUR_ACCESS_TOKEN';
+$CFG->accountId = 'YOUR_API_accountId';
+$CFG->clientId = 'YOUR_API_clientId';
+$CFG->clientSecret = 'YOUR_API_clientSecret';

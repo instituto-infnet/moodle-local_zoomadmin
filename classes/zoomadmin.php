@@ -80,24 +80,12 @@ class zoomadmin {
             'update',
             'delete'
         );
-
-        // Pega as credenciais do Zoom
-        $credentials = $this->get_credentials();
         
         // Instanciando um objeto da classe curl que está fora do namespace nosso, padrão, sendo que a classe curl é uma classe do Moodle
         $curl = new \curl();
-
-        // O payload aqui é só para preparar o token para fazer a requisição ao Zoom
-        $payload = array(
-            'iss' => $credentials['api_key'],
-            'exp' => time() + (1000 * 60)
-        );
-        
-        // Formata o token do modo esperado, usando o JWT para encodear o token
-        $token = \Firebase\JWT\JWT::encode($payload, $credentials['api_secret']);
         
         // Está montando a requisição formatando os dados no objeto $curl, neste caso o header HTTP
-        $curl->setHeader('Authorization: Bearer ' . $token);
+        $curl->setHeader('Authorization: Bearer ' . $this->create_zoom_token());
 
         // Quando a requisição não for GET (ou seja, auqi no nosso caso, é POST), modificamos o header
         if ($method !== 'get') {
@@ -580,6 +568,29 @@ class zoomadmin {
         return $response;
     }
 
+    public function create_zoom_token() {
+        $url = 'https://zoom.us/oauth/token?grant_type=account_credentials&account_id=';
+
+        $credentials = $this->get_credentials();
+
+        $curl = curl_init($url . $credentials['accountId']);
+
+        curl_setopt_array($curl, [
+            CURLOPT_CUSTOMREQUEST => 'POST',
+            CURLOPT_HTTPHEADER =>
+            ['Authorization: Basic ' 
+                . base64_encode($credentials['clientId']
+                    .':'. $credentials['clientSecret'])],
+            CURLOPT_RETURNTRANSFER => 1
+        ]);
+
+        $response = (object) json_decode(curl_exec($curl));
+
+        curl_close($curl);
+
+        return (string) $response->access_token;
+    }
+
     // O token permite que o plugin se autentique no Google Drive. Na pasta do plugin deve haver um arquivo de token
     public function create_google_api_token($params) {
         $googlecontroller = new \google_api_controller();
@@ -750,9 +761,9 @@ class zoomadmin {
         global $CFG;
 
         return array(
-            'api_key' => $CFG->zoom_apikey,
-            'api_secret' => $CFG->zoom_apisecret,
-            'token' => $CFG->zoom_token,
+            'accountId' => $CFG->accountId,
+            'clientId' => $CFG->clientId,
+            'clientSecret' => $CFG->clientSecret,
         );
     }
 
