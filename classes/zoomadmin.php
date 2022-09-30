@@ -27,6 +27,7 @@
 // diretamente pelo nome
 namespace local_zoomadmin;
 
+use dml_exception;
 use local_zoomadmin\form\log_form;
 
 defined('MOODLE_INTERNAL') || die(); // Padrão, para só rodar no Moodle
@@ -56,7 +57,6 @@ class zoomadmin {
     const KBYTE_BYTES = 1024;
     const MIN_VIDEO_SIZE = self::KBYTE_BYTES * self::KBYTE_BYTES * 20;
     const INITIAL_RECORDING_DATE = '2018-11-01';
-
     var $commands = array();
 
     /**
@@ -83,9 +83,9 @@ class zoomadmin {
         
         // Instanciando um objeto da classe curl que está fora do namespace nosso, padrão, sendo que a classe curl é uma classe do Moodle
         $curl = new \curl();
-        
+
         // Está montando a requisição formatando os dados no objeto $curl, neste caso o header HTTP
-        $curl->setHeader('Authorization: Bearer ' . $this->create_zoom_token());
+        $curl->setHeader('Authorization: Bearer ' . $this->retrive_zoom_token());
 
         // Quando a requisição não for GET (ou seja, auqi no nosso caso, é POST), modificamos o header
         if ($method !== 'get') {
@@ -123,7 +123,7 @@ class zoomadmin {
 
         // Esse if grava no log se houver erros no request
         if (isset($errormsg)) {
-            $this->add_log('zoomadmin->request', 'Error: ' . $errormsg);
+            $this->add_log('zoomadmin->request: '. $endpoint, 'http_code: ' . $httpstatus . ' | Error: ' . $errormsg);
         }
 
         // Grava no response o httpstatus caso esteja vazio (às vezes a API do Zoom não retorna nada, só o código HTTP)
@@ -568,7 +568,20 @@ class zoomadmin {
         return $response;
     }
 
+    public function retrive_zoom_token() {
+        global $DB;
+        //$sql = "SELECT access_token,expires_in FROM {local_zoomadmin_zoom_token} ORDER BY id DESC LIMIT 1";
+
+        $token = $DB->get_record('local_zoomadmin_zoom_token', ["id" => 1]);
+
+        if ($token == false || $token->expires_in < time()) {
+            return $this->create_zoom_token();
+        }
+        return (string) $token->access_token;
+    }
+
     public function create_zoom_token() {
+        global $DB;
         $url = 'https://zoom.us/oauth/token?grant_type=account_credentials&account_id=';
 
         $credentials = $this->get_credentials();
@@ -585,9 +598,18 @@ class zoomadmin {
         ]);
 
         $response = (object) json_decode(curl_exec($curl));
+        //Tempo que o Token sera valido, para o Zoom são 3599s, decidimos definir com 3000s
+        //para evitar o acumulo desses segundos e gerar erro de Token invalido
+        $response->expires_in += time() - 599; 
+        $response->id = 1;
 
+        if($DB->get_record('local_zoomadmin_zoom_token', ["id" => 1])){
+            $DB->update_record('local_zoomadmin_zoom_token', $response);
+        } else {
+            $DB->insert_record('local_zoomadmin_zoom_token', $response, true);
+        }
+        $this->add_log('create_zoom_token', curl_getinfo($curl, CURLINFO_HTTP_CODE) . ' | Time: ' . $response->expires_in);
         curl_close($curl);
-
         return (string) $response->access_token;
     }
 

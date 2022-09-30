@@ -136,11 +136,29 @@ function xmldb_local_zoomadmin_upgrade($oldversion) {
 
         // Zoomadmin savepoint reached.
         upgrade_plugin_savepoint(true, 2019032800, 'local', 'zoomadmin');
+
+    } else if ($oldversion < 2022031105) {
+
+        // Define table local_zoomadmin_zoom_token to be created.
+        $table = new xmldb_table('local_zoomadmin_zoom_token');
+
+        // Adding fields to table local_zoomadmin_zoom_token.
+        $table->add_field('id', XMLDB_TYPE_INTEGER, '10', null, XMLDB_NOTNULL, XMLDB_SEQUENCE, null);
+        $table->add_field('access_token', XMLDB_TYPE_TEXT, null, null, null, null, null);
+        $table->add_field('token_type', XMLDB_TYPE_CHAR, '32', null, XMLDB_NOTNULL, null, null);
+        $table->add_field('expires_in', XMLDB_TYPE_INTEGER, '8', null, XMLDB_NOTNULL, null, null);
+        $table->add_field('scope', XMLDB_TYPE_TEXT, null, null, null, null, null);
+
+        // Adding keys to table local_zoomadmin_zoom_token.
+        $table->add_key('primary', XMLDB_KEY_PRIMARY, ['id']);
+
+        // Conditionally launch create table for local_zoomadmin_zoom_token.
+        if (!$dbman->table_exists($table)) {
+            $dbman->create_table($table);
+        }
+
+        // Zoomadmin savepoint reached.
+        upgrade_plugin_savepoint(true, 2022031105, 'local', 'zoomadmin');
     }
-
-
-
-
-
 	return true;
 }
