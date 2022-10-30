@@ -23,6 +23,8 @@
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 
+$string['accountId'] = 'ID da cota';
+$string['accountId_desc'] = 'String do id da conta disponivel no painel do app';
 $string['add_user'] = 'Criar usuário';
 $string['add_meeting'] = 'Criar reunião';
 $string['add_recording_page'] = 'Adicionar página para gravações';
@@ -40,6 +42,7 @@ $string['command_recording_manage_pages'] = 'Gerenciar páginas de links de grav
 $string['command_recording_manage_pages_description'] = 'Permite associar reuniões do Zoom a módulos de página, para incluir links das gravações atuomaticamente.';
 $string['command_user_list'] = 'Listar usuários';
 $string['command_user_list_description'] = 'Lista todos os usuários do Zoom gerenciados pela instituição.';
+$string['command_record_pages_list'] = 'Listar paginas de gravação';
 $string['created_at'] = 'Data de criação';
 $string['department'] = 'Departamento';
 $string['details'] = 'Ver detalhes';
@@ -96,6 +99,7 @@ $string['host'] = 'Apresentador';
 $string['id'] = 'ID';
 $string['last_login_time'] = 'Último acesso';
 $string['log'] = 'Log';
+$string['manage'] = 'Configurações do Zoom';
 $string['meeting_advanced'] = 'Configurações de reunião (avançadas)';
 $string['meeting_basic'] = 'Configurações de reunião (básicas)';
 $string['meeting_live'] = 'Reuniões em andamento';

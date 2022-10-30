@@ -27,6 +27,7 @@ defined('MOODLE_INTERNAL') || die;
 
 if (has_capability('local/zoomadmin:managezoom', context_system::instance())) {
     $ADMIN->add('localplugins', new admin_category('zoom', get_string('zoom', 'local_zoomadmin')));
+    $settingspage = new admin_settingpage('managezoomadmin', new lang_string('manage', 'local_zoomadmin'));
     $ADMIN->add(
         'zoom',
         new admin_externalpage(
@@ -108,4 +109,45 @@ if (has_capability('local/zoomadmin:managezoom', context_system::instance())) {
             new moodle_url('/local/zoomadmin/send_course_recordings_to_google_drive.php')
         )
     );
+    $ADMIN->add(
+        'zoom_category_recording',
+        new admin_externalpage(
+            'local_zoomadmin_record_page_list',
+            get_string('command_record_pages_list', 'local_zoomadmin'),
+            new moodle_url('/local/zoomadmin/record_page_list.php')
+        )
+    );
+    if ($ADMIN->fulltree) {
+        $settingspage->add(
+            new admin_setting_heading('zoomCredetials','Credencias do Zoom','credenciais do Zoom')
+        );
+        $settingspage->add(
+            new admin_setting_configtext(
+                'local_zoomadmin/accountId',
+                'accountId',
+                'accountId_desc',
+                ''
+            )
+        );
+        $settingspage->add(
+            new admin_setting_configtext(
+                'local_zoomadmin/clientId',
+                'clientId',
+                'clientId_desc',
+                ''
+            )
+        );
+        $settingspage->add(
+            new admin_setting_configpasswordunmask(
+                'local_zoomadmin/clientSecret',
+                'clientSecret',
+                'clientSecret_desc',
+                ''
+            )
+        );
+        $settingspage->add(
+            new admin_setting_heading('googleCredetials','Credencias do Google','credenciais do Google')
+        );
+    }
+    $ADMIN->add('localplugins', $settingspage);
 }

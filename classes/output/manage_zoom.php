@@ -26,6 +26,9 @@
  */
 
 namespace local_zoomadmin\output;
+
+use moodle_url;
+
 defined('MOODLE_INTERNAL') || die;
 
 /*
@@ -146,6 +149,27 @@ class manage_zoom implements \renderable/*, \templatable*/ {
         );
 
         $data->pages = $this->get_pagination((int)$data->page_number, $data->page_count);
+
+        return $data;
+    }
+
+    /**
+     * Obtém a lista das paginas de gravação
+     * @return \stdClass Dados a serem utilizados pelo template.
+     */
+    public function export_record_page_list_for_template($renderer) {
+        $data = new \stdClass();
+
+        $limit = 50;
+
+        $data->addurl = new moodle_url('/local/zoomadmin/record_page_get.php');
+
+        $data->record_pages = $this->zoomadmin->get_record_pages_list($this->params['page_number'], $limit);
+        $data->record_pages = array_values($data->record_pages);
+
+        $data->page_count = $this->zoomadmin->get_total_record_pages_list($limit);
+
+        $data->pages = $this->get_pagination($this->params['page_number'], $data->page_count);
 
         return $data;
     }

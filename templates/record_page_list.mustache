@@ -1,0 +1,84 @@
+<a href="{{addurl}}?update=0" class="btn btn-primary btn-lg active" role="button" aria-pressed="true">Adicionar nova pagina</a>
+<div class="table-responsive px-3">
+    <table class="table">
+        <thead>
+            <tr>
+                <th scope="col">Pagecmid</th>
+                <th scope="col">ID Zoom</th>
+                <th scope="col">Ultima gravação adicionada</th>
+                <th scope="col">Alterar registro</th>
+                <th scope="col">Deletar</th>
+            </tr>
+        </thead>
+        <tbody>
+            {{#record_pages}}
+            <tr>
+                <td scope="col">{{pagecmid}}</td>
+                <td scope="col">{{zoommeetingnumber}}</td>
+                <td scope="col">
+                    {{#lastaddedtimestamp}}
+                        {{#userdate}} 
+                            {{lastaddedtimestamp}}, {{#str}} strftimedatetimeshort, core_langconfig {{/str}}
+                        {{/userdate}}
+                    {{/lastaddedtimestamp}}
+                </td>
+                <td scope="col"><a href="{{addurl}}?pagecmid={{pagecmid}}&update=1">Alterar</a></td>
+                <td scope="col"><a class="item-delete" data-id="{{id}}" href="#">Deletar</a></td>
+            </tr>
+            {{/record_pages}}
+        </tbody>
+    </table>
+</div>
+<div>
+    {{#str}}page{{/str}}:
+    {{#pages}}
+        {{#current}}
+            <span>{{number}}</span>
+        {{/current}}
+        {{^current}}
+            <a href="{{{user_list_url}}}?page_number={{number}}">{{number}}</a>
+        {{/current}}
+    {{/pages}}
+</div>
+
+{{#js}}
+require(['jquery', 'core/modal_factory', 'core/modal_events', 'core/ajax', 'core/notification'],
+    function ($, ModalFactory, ModalEvents, Ajax, Notification) {
+        $('.item-delete').on('click', function (e) {
+            var clickedLink = $(e.currentTarget);
+            ModalFactory.create({
+                type: ModalFactory.types.SAVE_CANCEL,
+                title: 'Delete registro',
+                body: 'Realmente deseja deletar?',
+            })
+            .then(function (modal) {
+                modal.setSaveButtonText('Delete');
+                var root = modal.getRoot();
+                root.on(ModalEvents.save, function () {
+                    var elementid = clickedLink.data('id');
+
+                    let request = {
+                        methodname: 'local_zoomadmin_delete_record_page',
+                        args: {'pagecmid': elementid},
+                    }
+                    
+                    console.log(elementid);
+
+                    Ajax.call([request])[0].done(function(data) {
+                        if (data === true) {
+                            // Redirect to manage page.
+                            window.location.reload();
+                        } else {
+                            Notification.addNotification({
+                                message: 'Erro',
+                                type: 'error',
+                            });
+                        }
+                    }).fail(Notification.exception);
+
+                });
+                modal.show();
+            });
+        });
+    });
+{{/js}}

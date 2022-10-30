@@ -367,6 +367,36 @@ class zoomadmin {
     }
 
     /**
+     * Calcula o total de paginas a partir do parametro limit passado com argumento
+     * TODO criar interface para escolher o tamanho do limit
+     */
+    public function get_total_record_pages_list($limit) {
+        global $DB;
+        
+        $record_count = $DB->count_records('local_zoomadmin_recordpages');
+
+        if($record_count % $limit != 0) {
+            return ($record_count / $limit) + 1;
+        } else {
+            return $record_count / $limit;
+        }
+    }
+
+    public function get_record_pages_list($curretpage, $limit) {
+        global $DB;
+
+        $curretpage -= 1;
+
+        return $DB->get_records('local_zoomadmin_recordpages', null, 'id Desc', '*', $curretpage * $limit, $limit);
+    }
+
+    public function delete_record_pages($id) {
+        global $DB;
+
+        return $DB->delete_records('local_zoomadmin_recordpages', ['id' => $id]);
+    }
+
+    /**
      * Esta é chamada repetidamente a partir da "add all recordings to page"
      * */ 
     public function add_recordings_to_page($meetingid) {
@@ -586,14 +616,17 @@ class zoomadmin {
 
         $credentials = $this->get_credentials();
 
-        $curl = curl_init($url . $credentials['accountId']);
+        $authheader = 'Authorization: Basic ' . base64_encode(
+                get_config('local_zoomadmin', 'clientId')
+                .':'
+                .get_config('local_zoomadmin', 'clientSecret')
+        );
+
+        $curl = curl_init($url . get_config('local_zoomadmin', 'accountId'));
 
         curl_setopt_array($curl, [
             CURLOPT_CUSTOMREQUEST => 'POST',
-            CURLOPT_HTTPHEADER =>
-            ['Authorization: Basic ' 
-                . base64_encode($credentials['clientId']
-                    .':'. $credentials['clientSecret'])],
+            CURLOPT_HTTPHEADER => [$authheader],
             CURLOPT_RETURNTRANSFER => 1
         ]);
 
@@ -778,7 +811,11 @@ class zoomadmin {
         $this->commands['recording_manage_pages'] = new command('recording', 'manage_pages');
     }
 
-    // Pega credenciais do Zoom, que estão no arquivo zoom-credentials.php, que fica na pasta raiz do plugin
+    /**
+     * Essa função recupera as credencias no Root do plugin, porem foi realizado uma melhoria
+     * das credencias serem adicionadas pelas configurações do plugin do Zoom pelo Moodle,
+     * portanto essa função podera ser removida em algum momento futuro
+     */
     private function get_credentials() {
         global $CFG;
 

@@ -78,4 +78,36 @@ class local_zoomadmin_external extends external_api {
         //*/
         (new \local_zoomadmin\zoomadmin())->insert_recording_participant($uuid, $userid);
     }
+
+    /**
+     * Retorna descrição dos parâmetros de método
+     * @return external_function_parameters
+     */
+    public static function delete_record_page_parameters() {
+        return new external_function_parameters(
+            array( 'pagecmid' => new external_value(PARAM_INT, 'ID do registro'),)
+        );
+    }
+
+    /**
+     * Retorna descrição dos parâmetros de método
+     * @return external_function_parameters
+     */
+    public static function delete_record_page($pagecmid) {
+        $params = self::validate_parameters(self::delete_record_page_parameters(), array('pagecmid'=>$pagecmid));
+
+
+        $zoomadmin = new \local_zoomadmin\zoomadmin();
+
+        return $zoomadmin->delete_record_pages($pagecmid);
+
+    }
+
+    /**
+     * Retorna descrição dos parâmetros de método
+     * @return external_function_parameters
+     */
+    public static function delete_record_page_returns() {
+        return new external_value(PARAM_BOOL, 'Verdadeiro se deletado com sucesso');
+    }
 }

@@ -24,12 +24,22 @@ $functions = array(
 		'description' => 'Insere um registro na tabela local_zoomadmin_participants, referente ao acesso à gravação de uma sessão do Zoom.',
 		'type' => 'write',
 		'ajax' => true
+	),
+	'local_zoomadmin_delete_record_page' => array(
+		'classname' => 'local_zoomadmin_external',
+		'methodname' => 'delete_record_page',
+		'classpath' => 'local/zoomadmin/externallib.php',
+		'description' => 'Deleta um registro de paginas de gravação',
+		'type' => 'delete',
+		'ajax' => true,
+		'capabilities' => 'local/zoomadmin:managezoom'
 	)
+
 );
 
 $services = array(
 	'Zoom Admin' => array(
-		'functions' => array('local_zoomadmin_insert_recording_participant'),
+		'functions' => array('local_zoomadmin_insert_recording_participant', 'local_zoomadmin_delete_record_page'),
 		'restrictedusers' => 0,
 		'enabled' => 1,
 		'shortname' => 'zoomadmin'
