@@ -52,12 +52,16 @@ if ($mform->is_cancelled()) {
     redirect(new moodle_url('/local/zoomadmin/record_page_list.php'));
 } else if (($fromform = $mform->get_data())) {
 
-    if($fromform->id){
-        $DB->update_record('local_zoomadmin_recordpages', $fromform);
-        redirect(new moodle_url('/local/zoomadmin/record_page_list.php'));
+    try{
+        if($fromform->id){
+            $DB->update_record('local_zoomadmin_recordpages', $fromform);
+        } else {
+            $DB->insert_record('local_zoomadmin_recordpages', $fromform);
+        }
+    } catch (\exception $e) {
+        \core\notification::add("Ocorreu um erro ao salvar/atuliazar o registro!", \core\output\notification::NOTIFY_ERROR);
     }
 
-    $DB->insert_record('local_zoomadmin_recordpages', $fromform);
     redirect(new moodle_url('/local/zoomadmin/record_page_list.php'));
 
 }

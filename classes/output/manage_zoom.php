@@ -164,12 +164,15 @@ class manage_zoom implements \renderable/*, \templatable*/ {
 
         $data->addurl = new moodle_url('/local/zoomadmin/record_page_get.php');
 
-        $data->record_pages = $this->zoomadmin->get_record_pages_list($this->params['page_number'], $limit);
-        $data->record_pages = array_values($data->record_pages);
+        if(isset($this->params['pagecmid']) || isset($this->params['zoommeetingnumber'] )){
+            $data->record_pages = $this->zoomadmin->get_single_record_page($this->params);
 
-        $data->page_count = $this->zoomadmin->get_total_record_pages_list($limit);
-
-        $data->pages = $this->get_pagination($this->params['page_number'], $data->page_count);
+        } else {
+            $data->record_pages = $this->zoomadmin->get_record_pages_list($this->params['page_number'], $limit);
+            $data->record_pages = array_values($data->record_pages);
+            $data->page_count = $this->zoomadmin->get_total_record_pages_list($limit);
+            $data->pages = $this->get_pagination($this->params['page_number'], $data->page_count);
+        }
 
         return $data;
     }

@@ -390,6 +390,17 @@ class zoomadmin {
         return $DB->get_records('local_zoomadmin_recordpages', null, 'id Desc', '*', $curretpage * $limit, $limit);
     }
 
+    public function get_single_record_page($params) {
+        global $DB;
+
+        $sql = "SELECT * FROM {local_zoomadmin_recordpages} 
+                WHERE pagecmid = :pagecmid OR zoommeetingnumber = :zoommeetingnumber";
+
+        return $DB->get_record_sql($sql, 
+            array( 'pagecmid' => $params['pagecmid'], 'zoommeetingnumber' => $params['zoommeetingnumber']
+        ));
+    }
+
     public function delete_record_pages($id) {
         global $DB;
 

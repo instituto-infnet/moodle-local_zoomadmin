@@ -23,8 +23,13 @@
 
 require_once(__DIR__ . '/../../config.php');
 require_once($CFG->libdir . '/adminlib.php');
+require_once(__DIR__ . '/classes/form/record_page_form.php');
 
-$params = array('page_number' => optional_param('page_number', 1, PARAM_INT));
+$params = array(
+    'page_number' => optional_param('page_number', 1, PARAM_INT),
+    'pagecmid' => optional_param('pagecmid', null, PARAM_INT),
+    'zoommeetingnumber' => optional_param('zoommeetingnumber', null, PARAM_INT)
+);
 
 $url = new moodle_url('/local/zoomadmin/record_page_list.php', $params);
 $PAGE->set_url($url);
@@ -39,11 +44,25 @@ require_login();
 require_capability('local/zoomadmin:managezoom', $context);
 admin_externalpage_setup('local_zoomadmin_record_page_list');
 
+$mform = new record_page_form();
+
+if ($mform->is_cancelled()) {
+    redirect(new moodle_url('/local/zoomadmin/record_page_list.php'));
+} else if (($fromform = $mform->get_data())) {
+    redirect(new moodle_url('/local/zoomadmin/record_page_list.php', 
+        array(
+            'pagecmid' => $fromform->pagecmid,
+            'zoommeetingnumber' => $fromform->zoommeetingnumber,
+        )));
+}
+
 $output = $PAGE->get_renderer('local_zoomadmin');
 $page = new \local_zoomadmin\output\manage_zoom($params);
 
 echo $output->header() . $output->heading($title);
 
+echo "<h3>Caixa de pesquisa:</h3>";
+$mform->display();
 echo $output->render_page($page);
 
 echo $output->footer();
